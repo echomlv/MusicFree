@@ -70,6 +70,7 @@ class TrackPlayer extends EventEmitter<{
     private advancingQueue = false;
     private playRequestId = 0;
     private failedPlayRequestId = -1;
+    private endedPlayRequestId = -1;
     // 播放队列索引map
     private playListIndexMap = createMediaIndexMap([] as IMusic.IMusicItem[]);
 
@@ -189,13 +190,27 @@ class TrackPlayer extends EventEmitter<{
             // Resolve one actual source at a time and advance when AVPlayer reaches its end.
             ReactNativeTrackPlayer.addEventListener(
                 Event.PlaybackQueueEnded,
-                async () => {
+                async event => {
                     if (this.advancingQueue) return;
                     this.advancingQueue = true;
+                    const requestId = this.playRequestId;
                     try {
                         const endedTrack = await ReactNativeTrackPlayer.getActiveTrack();
-                        const { state } = await ReactNativeTrackPlayer.getPlaybackState();
-                        if (state !== State.Ended || !endedTrack || !this.isCurrentMusic(endedTrack as IMusic.IMusicItem)) return;
+                        const [{ state }, endedProgress] = await Promise.all([
+                            ReactNativeTrackPlayer.getPlaybackState(),
+                            ReactNativeTrackPlayer.getProgress(),
+                        ]);
+                        if (requestId !== this.playRequestId || this.endedPlayRequestId === requestId ||
+                            !endedTrack || !this.isCurrentMusic(endedTrack as IMusic.IMusicItem)) return;
+
+                        // AVPlayer can transition from ended to paused/ready before JS
+                        // handles this event. Validate the position before advancing.
+                        const nearEnd = endedProgress.duration > 0 &&
+                            endedProgress.position >= endedProgress.duration - 1 &&
+                            (event?.position ?? endedProgress.position) >= endedProgress.duration - 1;
+                        if (state !== State.Ended &&
+                            !((state === State.Paused || state === State.Ready) && nearEnd)) return;
+                        this.endedPlayRequestId = requestId;
                         if (consumeSleepTimer(true)) {
                             await ReactNativeTrackPlayer.reset();
                             return;

@@ -15,10 +15,11 @@ jest.mock('@/utils/mediaUtils', () => ({
 }));
 jest.mock('react-native-track-player', () => ({
     Event: {PlaybackQueueEnded: 'queue-ended', PlaybackError: 'error'},
-    State: {Ended: 'ended', Playing: 'playing', Paused: 'paused', Error: 'error', Stopped: 'stopped', None: 'none'},
+    State: {Ended: 'ended', Playing: 'playing', Paused: 'paused', Ready: 'ready', Error: 'error', Stopped: 'stopped', None: 'none'},
     addEventListener: jest.fn(),
     getActiveTrack: jest.fn(),
     getPlaybackState: jest.fn(),
+    getProgress: jest.fn(),
     getActiveTrackIndex: jest.fn(), getTrack: jest.fn(), updateMetadataForTrack: jest.fn(),
     setQueue: jest.fn(), reset: jest.fn(), play: jest.fn(), setRate: jest.fn(),
 }));
@@ -58,8 +59,10 @@ beforeEach(() => {
     nativePlayer.getActiveTrackIndex.mockResolvedValue(0);
     nativePlayer.getTrack.mockResolvedValue(song);
     nativePlayer.getPlaybackState.mockResolvedValue({state: 'ended'});
+    nativePlayer.getProgress.mockResolvedValue({position: 100, duration: 100, buffered: 100});
     player.setCurrentMusic(song);
     player.failedPlayRequestId = -1;
+    player.endedPlayRequestId = -1;
     player.setRepeatMode(MusicRepeatMode.QUEUE);
     getDefaultStore().set(deadlineAtom, null);
     getDefaultStore().set(closeAfterPlayEndAtom, false);
@@ -78,6 +81,44 @@ it('replays the current song in single-repeat mode', async () => {
     player.setRepeatMode(MusicRepeatMode.SINGLE);
     await onQueueEnded();
     expect(player.play).toHaveBeenCalledWith(null, true);
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it.each(['paused', 'ready'])('advances after natural completion even when iOS has already changed to %s', async state => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state});
+    nativePlayer.getProgress.mockResolvedValue({position: 262.64, duration: 262.687, buffered: 262.687});
+    await onQueueEnded({track: 0, position: 262.64});
+    expect(player.skipToNext).toHaveBeenCalledTimes(1);
+});
+
+it('ignores an old end event after seeking back into the current song', async () => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'paused'});
+    nativePlayer.getProgress.mockResolvedValue({position: 10, duration: 100, buffered: 100});
+    await onQueueEnded({track: 0, position: 100});
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('consumes sequential duplicate end events only once for the same play request', async () => {
+    await onQueueEnded({track: 0, position: 100});
+    await onQueueEnded({track: 0, position: 100});
+    expect(player.skipToNext).toHaveBeenCalledTimes(1);
+});
+
+it('ignores an end event if a new play request starts while its state is being read', async () => {
+    nativePlayer.getActiveTrack.mockImplementationOnce(async () => {
+        player.playRequestId += 1;
+        return song;
+    });
+    await onQueueEnded({track: 0, position: 100});
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('still honors a finish-current-song timer when iOS reports paused after completion', async () => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'paused'});
+    getDefaultStore().set(deadlineAtom, Date.now() - 1000);
+    getDefaultStore().set(closeAfterPlayEndAtom, true);
+    await onQueueEnded({track: 0, position: 100});
+    expect(nativePlayer.reset).toHaveBeenCalledTimes(1);
     expect(player.skipToNext).not.toHaveBeenCalled();
 });
 
