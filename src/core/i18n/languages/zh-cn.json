@@ -1,4 +1,5 @@
 {
+    "player.playbackFailed": "无法播放“{title}”，请检查网络或更换音源插件",
     "common.setting": "设置",
     "common.software": "软件",
     "common.language": "语言",

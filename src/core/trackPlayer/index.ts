@@ -39,6 +39,8 @@ import { IPluginManager } from "@/types/core/pluginManager";
 import { ImgAsset } from "@/constants/assetsConst";
 import { resolveImportedAssetOrPath } from "@/utils/fileUtils";
 import { consumeSleepTimer } from "@/utils/sleepTimerState";
+import { showToast } from "@/components/base/toast";
+import i18n from "../i18n";
 
 
 
@@ -66,6 +68,8 @@ class TrackPlayer extends EventEmitter<{
     // 音乐播放器服务是否启动
     private serviceInited = false;
     private advancingQueue = false;
+    private playRequestId = 0;
+    private failedPlayRequestId = -1;
     // 播放队列索引map
     private playListIndexMap = createMediaIndexMap([] as IMusic.IMusicItem[]);
 
@@ -157,13 +161,13 @@ class TrackPlayer extends EventEmitter<{
             }
 
             // 异步
+            const startupRequestId = this.playRequestId;
             this.pluginManagerService.getByMedia(track)
                 ?.methods.getMediaSource(track, quality)
                 .then(async newSource => {
-                    track.url = newSource?.url || track.url;
-                    track.headers = newSource?.headers || track.headers;
-
-                    if (isSameMediaItem(this.currentMusic, track)) {
+                    if (startupRequestId === this.playRequestId && isSameMediaItem(this.currentMusic, track)) {
+                        track.url = newSource?.url || track.url;
+                        track.headers = newSource?.headers || track.headers;
                         await this.setTrackSource(track as Track, false);
                         if (progress) {
                             // 异步
@@ -211,33 +215,34 @@ class TrackPlayer extends EventEmitter<{
             ReactNativeTrackPlayer.addEventListener(
                 Event.PlaybackError,
                 async e => {
-                    errorLog("播放出错", e.message);
-                    // WARNING: 不稳定，报错的时候有可能track已经变到下一首歌去了
-                    const currentTrack =
-                        await ReactNativeTrackPlayer.getActiveTrack();
+                    const [currentTrack, activeIndex, playbackState] = await Promise.all([
+                        ReactNativeTrackPlayer.getActiveTrack(),
+                        ReactNativeTrackPlayer.getActiveTrackIndex(),
+                        ReactNativeTrackPlayer.getPlaybackState(),
+                    ]);
+                    if (!currentTrack || activeIndex !== 0 ||
+                        !this.isCurrentMusic(currentTrack as IMusic.IMusicItem) ||
+                        playbackState.state !== State.Error) {
+                        return;
+                    }
                     if (currentTrack?.isInit) {
                         // HACK: 避免初始失败的情况
-                        ReactNativeTrackPlayer.updateMetadataForTrack(0, {
+                        await ReactNativeTrackPlayer.updateMetadataForTrack(0, {
                             ...currentTrack,
                             // @ts-ignore
-                            isInit: undefined,
+                            isInit: false,
                         });
                         return;
                     }
 
-                    if (
-                        currentTrack && this.isCurrentMusic(currentTrack as IMusic.IMusicItem) &&
-                        (await ReactNativeTrackPlayer.getActiveTrackIndex()) === 0 &&
-                        e.message &&
-                        e.message !== "android-io-file-not-found"
-                    ) {
-                        trace("播放出错", {
-                            message: e.message,
-                            code: e.code,
-                        });
-
-                        this.handlePlayFail();
-                    }
+                    // RNTP 4.1 iOS emits { error }, while its TS type declares
+                    // { message, code }. PlaybackState provides the detailed error.
+                    const payload = e as { error?: string; message?: string; code?: string };
+                    const message = payload.message || playbackState.error?.message || payload.error;
+                    const code = payload.code || playbackState.error?.code;
+                    errorLog("播放出错", message);
+                    trace("播放出错", { message, code });
+                    await this.handlePlayFail(currentTrack as IMusic.IMusicItem);
                 },
             );
 
@@ -398,6 +403,7 @@ class TrackPlayer extends EventEmitter<{
         musicItem?: IMusic.IMusicItem | null,
         forcePlay?: boolean,
     ): Promise<void> {
+        this.playRequestId += 1;
         try {
             // 如果不传参，默认是播放当前音乐
             if (!musicItem) {
@@ -422,14 +428,23 @@ class TrackPlayer extends EventEmitter<{
             if (this.isCurrentMusic(musicItem)) {
                 // 获取底层播放器中的track
                 const currentTrack = await ReactNativeTrackPlayer.getTrack(0);
+                const currentState = (
+                    await ReactNativeTrackPlayer.getPlaybackState()
+                ).state;
                 // 2.1 如果当前有源
                 if (
-                    currentTrack?.url &&
+                    currentState !== State.Error && currentTrack?.url &&
                     isSameMediaItem(
                         musicItem,
                         currentTrack as IMusic.IMusicItem,
                     )
                 ) {
+                    if (currentTrack.isInit) {
+                        await ReactNativeTrackPlayer.updateMetadataForTrack(0, {
+                            ...currentTrack,
+                            isInit: false,
+                        } as TrackMetadataBase);
+                    }
                     const currentActiveIndex =
                         await ReactNativeTrackPlayer.getActiveTrackIndex();
                     if (currentActiveIndex !== 0) {
@@ -439,9 +454,6 @@ class TrackPlayer extends EventEmitter<{
                         // 2.1.1 强制重新开始
                         await this.seekTo(0);
                     }
-                    const currentState = (
-                        await ReactNativeTrackPlayer.getPlaybackState()
-                    ).state;
                     if (currentState === State.Stopped || currentState === State.Ended) {
                         await this.setTrackSource(currentTrack);
                     }
@@ -565,6 +577,7 @@ class TrackPlayer extends EventEmitter<{
             }
             // 7. 合并结果
             track = this.mergeTrackSource(musicItem, source) as IMusic.IMusicItem;
+            track.isInit = false;
 
             // 8. 新增历史记录
             this.musicHistoryService.addMusic(musicItem);
@@ -588,7 +601,8 @@ class TrackPlayer extends EventEmitter<{
 
             // 11. 设置补充信息
             if (info && this.isCurrentMusic(musicItem)) {
-                const mergedTrack = this.mergeTrackSource(track, info);
+                const mergedTrack = this.mergeTrackSource(track, info) as IMusic.IMusicItem;
+                mergedTrack.isInit = false;
                 getDefaultStore().set(currentMusicAtom, mergedTrack as IMusic.IMusicItem);
                 await ReactNativeTrackPlayer.updateMetadataForTrack(
                     0,
@@ -613,9 +627,13 @@ class TrackPlayer extends EventEmitter<{
                 }
             } else if (message === PlayFailReason.INVALID_SOURCE) {
                 trace("音源为空，播放失败");
-                await this.handlePlayFail();
+                await this.handlePlayFail(musicItem);
             } else if (message === PlayFailReason.PLAY_LIST_IS_EMPTY) {
                 // 队列是空的，不应该出现这种情况
+            } else {
+                errorLog("播放失败", message);
+                trace("播放失败", { message });
+                await this.handlePlayFail(musicItem);
             }
         }
     }
@@ -789,7 +807,10 @@ class TrackPlayer extends EventEmitter<{
 
     // 设置音源
     private async setTrackSource(track: Track, autoPlay = true) {
-        const clonedTrack = this.patchMediaArtwork(track);
+        const clonedTrack = this.patchMediaArtwork({
+            ...track,
+            isInit: autoPlay ? false : track.isInit,
+        });
         if (!clonedTrack) {
             return;
         }
@@ -867,11 +888,24 @@ class TrackPlayer extends EventEmitter<{
         });
     }
 
-    private async handlePlayFail() {
-        // 如果自动跳转下一曲, 500s后自动跳转
+    private async handlePlayFail(musicItem = this.currentMusic) {
+        if (!musicItem || !this.isCurrentMusic(musicItem) || this.failedPlayRequestId === this.playRequestId) {
+            return;
+        }
+        const failedRequestId = this.playRequestId;
+        this.failedPlayRequestId = failedRequestId;
+        showToast({
+            type: "warn",
+            message: i18n.t("player.playbackFailed", { title: musicItem.title }),
+            duration: 4000,
+        });
+        // 如果自动跳转下一曲，500ms 后自动跳转。
         if (!this.configService.getConfig("basic.autoStopWhenError")) {
             await delay(500);
-            await this.skipToNext();
+            const { state } = await ReactNativeTrackPlayer.getPlaybackState();
+            if (this.playRequestId === failedRequestId && this.isCurrentMusic(musicItem) && (state === State.Error || state === State.None)) {
+                await this.skipToNext();
+            }
         }
     }
 
