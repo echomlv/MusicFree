@@ -55,7 +55,7 @@ export default function (props: IPanelBaseProps) {
     const orientation = useOrientation();
     const useAnimatedBase = useMemo(
         () => (orientation === "horizontal" ? rpx(750) : height),
-        [orientation],
+        [orientation, height],
     );
 
     const backHandlerRef = useRef<NativeEventSubscription>();
@@ -192,8 +192,10 @@ export default function (props: IPanelBaseProps) {
                 panelBody
             ) : (
                 <KeyboardAvoidingView
+                    pointerEvents="box-none"
                     style={style.kbContainer}
-                    behavior={keyboardAvoidBehavior || "position"}>
+                    contentContainerStyle={style.kbContent}
+                    behavior={keyboardAvoidBehavior || "height"}>
                     {panelBody}
                 </KeyboardAvoidingView>
             )}
@@ -218,6 +220,7 @@ const style = StyleSheet.create({
     },
     wrapper: {
         position: "absolute",
+        maxHeight: "100%",
         width: rpx(750),
         right: 0,
         borderTopLeftRadius: rpx(28),
@@ -225,6 +228,11 @@ const style = StyleSheet.create({
         zIndex: 15010,
     },
     kbContainer: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 15010,
+    },
+    kbContent: {
+        flex: 1,
         zIndex: 15010,
     },
 });

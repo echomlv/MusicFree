@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Dialogs from "@/components/dialogs";
 import Panels from "@/components/panels";
 import PageBackground from "@/components/base/pageBackground";
+import PageContainer from "@/components/base/pageContainer";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Debug from "@/components/debug";
 import { PortalHost } from "@/components/base/portal";
@@ -47,13 +48,20 @@ export default function Pages() {
                                 headerShown: false,
                                 animation: "slide_from_right",
                                 animationDuration: 100,
+                                contentStyle: {
+                                    backgroundColor: theme.colors.pageBackground,
+                                },
                             }}>
                             {routes.map(route => (
                                 <Stack.Screen
                                     key={route.path}
-                                    name={route.path}
-                                    component={route.component}
-                                />
+                                    name={route.path}>
+                                    {screenProps => (
+                                        <PageContainer>
+                                            <route.component {...screenProps} />
+                                        </PageContainer>
+                                    )}
+                                </Stack.Screen>
                             ))}
                         </Stack.Navigator>                        
                         <Panels />

@@ -29,6 +29,7 @@ interface ISettingOptions {
 function HomeDrawer(props: any) {
     const navigate = useNavigate();
     function navigateToSetting(settingType: string) {
+        props.navigation.closeDrawer();
         navigate(ROUTE_PATH.SETTING, {
             type: settingType,
         });
