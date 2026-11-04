@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import rpx from "@/utils/rpx";
-import { SceneMap, TabBar, TabView } from "react-native-tab-view";
+import { SceneMap, TabView } from "react-native-tab-view";
+import TabBar from "@/components/base/tabBar";
 import { fontWeightConst } from "@/constants/uiConst";
 import ResultList from "./resultList";
 import { useAtomValue } from "jotai";

@@ -2,10 +2,12 @@
 
 此分支以 iOS 为目标，最低部署版本为 iOS 15.1。保留 MusicFree 的插件、歌单、搜索、主题和歌词业务，播放器使用现有的 React Native Track Player 4.1.1。
 
-需要 macOS、完整 Xcode、Node.js 18 或 20、Watchman，以及 Ruby/Bundler/CocoaPods。建议使用 Ruby 3.2 或更新版本。Watchman 用于 Metro 文件监听，避免 Node 默认监听器出现 `EMFILE` 错误。
+需要 macOS、完整 Xcode、Node.js、Watchman，以及 Ruby/Bundler/CocoaPods。项目通过 `.nvmrc` 固定 Node.js，通过 `.ruby-version` 固定 Ruby 3.3.12。Watchman 用于 Metro 文件监听，避免 Node 默认监听器出现 `EMFILE` 错误。
 
 ```sh
-brew install watchman
+brew install rbenv ruby-build watchman
+eval "$(rbenv init - zsh)"
+rbenv install -s "$(cat .ruby-version)"
 nvm install
 nvm use
 npm ci
@@ -13,6 +15,10 @@ bundle install
 bundle exec pod install --project-directory=ios
 npm start
 ```
+
+如果尚未配置 rbenv，将 `eval "$(rbenv init - zsh)"` 加到 `~/.zshrc`，让新终端也能自动选择项目 Ruby。Ruby 3.3 自带 Bundler，执行 `bundle install` 前可用 `ruby -v` 和 `which ruby` 检查：应显示 Ruby 3.3.12，路径应指向 rbenv 的 shim，而不是 `/usr/bin/ruby`。
+
+如果 `bundle install` 报 `json` 的 `extconf failed`，并且日志路径包含 `vendor/bundle/ruby/2.6.0` 或提示缺少 `ruby/config.h`，说明仍在使用 macOS 系统 Ruby。执行上面的 rbenv 初始化和安装命令后重试 `bundle install`。Node.js 的 `nvm use` 不会切换 Ruby；无需对系统 Ruby 执行 `sudo gem install`。
 
 另开终端运行：
 
