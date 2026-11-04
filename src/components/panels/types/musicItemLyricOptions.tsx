@@ -16,7 +16,7 @@ import { iconSizeConst } from "@/constants/uiConst";
 import Config from "@/core/appConfig";
 import lyricManager from "@/core/lyricManager";
 import mediaCache from "@/core/mediaCache";
-import LyricUtil from "@/native/lyricUtil";
+import LyricUtil, { isStatusBarLyricSupported } from "@/native/lyricUtil";
 import { getDocumentAsync } from "expo-document-picker";
 import { readAsStringAsync } from "expo-file-system";
 import { FlatList } from "react-native-gesture-handler";
@@ -91,6 +91,7 @@ export default function MusicItemLyricOptions(
             },
         },
         {
+            show: isStatusBarLyricSupported,
             icon: "lyric", title: t("panel.musicItemLyricOptions.toggleDesktopLyric", {
                 status: Config.getConfig("lyric.showStatusBarLyric")
                     ? t("panel.musicItemLyricOptions.disableDesktopLyric")

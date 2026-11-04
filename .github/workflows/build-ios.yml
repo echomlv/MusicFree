@@ -1,0 +1,49 @@
+name: iOS build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'ios/**'
+      - 'package*.json'
+      - 'Gemfile*'
+      - '.nvmrc'
+      - '*config.js'
+      - '.github/workflows/build-ios.yml'
+
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm test -- --runInBand
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      - run: bundle exec pod install --project-directory=ios
+      - name: Build Release for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/MusicFree.xcworkspace \
+            -scheme MusicFree \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO ARCHS=arm64 \
+            build 2>&1 | tee build-ios.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-build-log
+          path: build-ios.log

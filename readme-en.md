@@ -17,7 +17,7 @@
 
 ## Introduction
 
-A plugin-based, customizable, ad-free music player that currently supports Android and Harmony OS only.
+A plugin-based, customizable, ad-free music player. Upstream supports Android and Harmony OS; this branch adds iOS support. See the [iOS build and usage guide](docs/ios.md).
 
 > **Desktop version is here: <https://github.com/maotoumao/MusicFreeDesktop>**
 

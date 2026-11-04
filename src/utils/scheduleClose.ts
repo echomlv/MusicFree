@@ -1,32 +1,20 @@
-import { TrackPlayerEvents } from "@/core.defination/trackPlayer";
 import TrackPlayer from "@/core/trackPlayer";
-import NativeUtils from "@/native/utils";
-import { atom, getDefaultStore, useAtomValue } from "jotai";
+import { getDefaultStore, useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import BackgroundTimer from "react-native-background-timer";
+import { closeAfterPlayEndAtom, consumeSleepTimer, deadlineAtom } from "./sleepTimerState";
 
-
-const deadlineAtom = atom<number | null>(null);
-const closeAfterPlayEndAtom = atom(false);
 
 let timerId: any;
 
-
-async function exitApp() {
-    await TrackPlayer.reset();
-    NativeUtils.exitApp();
-}
 
 function setScheduleClose(deadline: number | null) {
     getDefaultStore().set(deadlineAtom, deadline);
     timerId && BackgroundTimer.clearTimeout(timerId);
     if (deadline && deadline > Date.now()) {
         timerId = BackgroundTimer.setTimeout(async () => {
-            const playAfterEnd = getDefaultStore().get(closeAfterPlayEndAtom);
-            if (playAfterEnd) {
-                TrackPlayer.on(TrackPlayerEvents.PlayEnd, exitApp);
-            } else {
-                exitApp();
+            if (consumeSleepTimer()) {
+                await TrackPlayer.reset();
             }
 
         }, deadline - Date.now());
@@ -39,11 +27,8 @@ function setScheduleClose(deadline: number | null) {
 }
 
 function setCloseAfterPlayEnd(closeAfterPlayEnd: boolean) {
-    if (!closeAfterPlayEnd) {
-        // 边界条件：如果倒计时结束后，Trackplayer停止播放前，取消了修改
-        TrackPlayer.off(TrackPlayerEvents.PlayEnd, exitApp);
-    }
     getDefaultStore().set(closeAfterPlayEndAtom, closeAfterPlayEnd);
+    if (consumeSleepTimer()) void TrackPlayer.reset();
 }
 
 function useScheduleCloseCountDown() {

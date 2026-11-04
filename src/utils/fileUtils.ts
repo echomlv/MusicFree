@@ -1,4 +1,5 @@
 import pathConst from "@/constants/pathConst";
+import { NativeModules, Platform } from "react-native";
 import FastImage from "react-native-fast-image";
 import RNFS, {
     PicturesDirectoryPath,
@@ -22,6 +23,27 @@ const galleryBasePath = `${PicturesDirectoryPath}/MusicFree/`;
  * @returns 保存后的文件路径
  */
 export async function saveToGallery(src: string) {
+    if (Platform.OS === "ios") {
+        let localPath = src.startsWith("file://") ? decodeURIComponent(src.slice(7)) : src;
+        let temporaryPath: string | undefined;
+        try {
+            if (/^https?:/.test(src)) {
+                temporaryPath = `${RNFS.CachesDirectoryPath}/artwork-${Date.now()}.png`;
+                const result = await downloadFile({ fromUrl: src, toFile: temporaryPath }).promise;
+                if (result.statusCode >= 400) throw new Error(`Image download failed: ${result.statusCode}`);
+                localPath = temporaryPath;
+            } else if (src.startsWith("data:")) {
+                const match = src.match(/^data:[^;,]+;base64,(.*)$/s);
+                if (!match) throw new Error("Unsupported image data");
+                temporaryPath = `${RNFS.CachesDirectoryPath}/artwork-${Date.now()}.png`;
+                await writeFile(temporaryPath, match[1], "base64");
+                localPath = temporaryPath;
+            }
+            return await NativeModules.MediaLibrary.saveImage(localPath) as string;
+        } finally {
+            if (temporaryPath && await exists(temporaryPath)) await unlink(temporaryPath);
+        }
+    }
     const fileName = `${galleryBasePath}${Date.now()}.png`;
     if (!(await exists(galleryBasePath))) {
         await mkdir(galleryBasePath);

@@ -11,7 +11,7 @@ import Config, { useAppConfig } from "@/core/appConfig";
 import { useI18N } from "@/core/i18n";
 import { ROUTE_PATH, useNavigate } from "@/core/router";
 import useColors from "@/hooks/useColors";
-import LyricUtil, { NativeTextAlignment } from "@/native/lyricUtil";
+import LyricUtil, { isStatusBarLyricSupported, NativeTextAlignment } from "@/native/lyricUtil";
 import { AppConfigPropertyKey } from "@/types/core/config";
 import { clearCache, getCacheSize, sizeFormatter } from "@/utils/fileUtils";
 import { clearLog, getErrorLogContent } from "@/utils/log";
@@ -21,7 +21,7 @@ import Toast from "@/utils/toast";
 import Clipboard from "@react-native-clipboard/clipboard";
 import Slider from "@react-native-community/slider";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { SectionList, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Platform, SectionList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { readdir } from "react-native-fs";
 import { FlatList, ScrollView } from "react-native-gesture-handler";
 
@@ -183,11 +183,11 @@ export default function BasicSetting() {
                         search: t("basicSettings.associateLyricType.search"),
                     },
                 ),
-                createSwitch(
+                ...(Platform.OS === "android" ? [createSwitch(
                     t("basicSettings.showExitOnNotification"),
                     "basic.showExitOnNotification",
                     showExitOnNotification ?? false,
-                ),
+                )] : []),
             ],
         },
         {
@@ -267,11 +267,11 @@ export default function BasicSetting() {
         {
             title: t("basicSettings.playback"),
             data: [
-                createSwitch(
+                ...(Platform.OS === "android" ? [createSwitch(
                     t("basicSettings.notInterrupt"),
                     "basic.notInterrupt",
                     notInterrupt ?? false,
-                ),
+                )] : []),
                 createSwitch(
                     t("basicSettings.autoPlayWhenAppStart"),
                     "basic.autoPlayWhenAppStart",
@@ -287,28 +287,30 @@ export default function BasicSetting() {
                     "basic.autoStopWhenError",
                     autoStopWhenError ?? false,
                 ),
-                createRadio(
-                    t("basicSettings.tempRemoteDuck"),
-                    "basic.tempRemoteDuck",
-                    ["pause", "lowerVolume"],
-                    tempRemoteDuck ?? "pause",
-                    {
-                        pause: t("basicSettings.tempRemoteDuck.pause"),
-                        "lowerVolume": t("basicSettings.tempRemoteDuck.lowerVolume"),
-                    }
-                ),
-                ...(tempRemoteDuck === "lowerVolume" ? [
+                ...(Platform.OS === "android" ? [
                     createRadio(
-                        t("basicSettings.tempRemoteDuck.volumeDecreaseLevel"),
-                        "basic.tempRemoteDuckVolume",
-                        [0.3, 0.5, 0.8],
-                        tempRemoteDuckVolume ?? 0.5,
+                        t("basicSettings.tempRemoteDuck"),
+                        "basic.tempRemoteDuck",
+                        ["pause", "lowerVolume"],
+                        tempRemoteDuck ?? "pause",
                         {
-                            0.3: "30%",
-                            0.5: "50%",
-                            0.8: "80%",
+                            pause: t("basicSettings.tempRemoteDuck.pause"),
+                            "lowerVolume": t("basicSettings.tempRemoteDuck.lowerVolume"),
                         }
                     ),
+                    ...(tempRemoteDuck === "lowerVolume" ? [
+                        createRadio(
+                            t("basicSettings.tempRemoteDuck.volumeDecreaseLevel"),
+                            "basic.tempRemoteDuckVolume",
+                            [0.3, 0.5, 0.8],
+                            tempRemoteDuckVolume ?? 0.5,
+                            {
+                                0.3: "30%",
+                                0.5: "50%",
+                                0.8: "80%",
+                            }
+                        ),
+                    ] : []),
                 ] : []),
                 createRadio(
                     t("basicSettings.defaultPlayQuality"),
@@ -348,7 +350,7 @@ export default function BasicSetting() {
                                 pathConst.downloadMusicPath}
                         </ThemeText>
                     ),
-                    onPress() {
+                    onPress: Platform.OS === "ios" ? undefined : () => {
                         navigate<"file-selector">(ROUTE_PATH.FILE_SELECTOR, {
                             fileType: "folder",
                             multi: false,
@@ -423,58 +425,60 @@ export default function BasicSetting() {
         {
             title: t("basicSettings.cache"),
             data: [
-                {
-                    title: t("basicSettings.cache.musicCacheLimit"),
-                    right: (
-                        <ThemeText style={styles.centerText}>
-                            {maxCacheSize
-                                ? sizeFormatter(maxCacheSize)
-                                : "512M"}
-                        </ThemeText>
-                    ),
-                    onPress() {
-                        showPanel("SimpleInput", {
-                            title: t("dialog.setCacheTitle"),
-                            placeholder: t("dialog.setCachePlaceholder"),
-                            onOk(text, closePanel) {
-                                let val = parseInt(text);
-                                if (val < 100) {
-                                    val = 100;
-                                } else if (val > 8192) {
-                                    val = 8192;
-                                }
-                                if (val >= 100 && val <= 8192) {
-                                    Config.setConfig(
-                                        "basic.maxCacheSize",
-                                        val * 1024 * 1024,
-                                    );
-                                    closePanel();
-                                    Toast.success(t("toast.cacheSetSuccess"));
-                                }
-                            },
-                        });
+                ...(Platform.OS === "android" ? [
+                    {
+                        title: t("basicSettings.cache.musicCacheLimit"),
+                        right: (
+                            <ThemeText style={styles.centerText}>
+                                {maxCacheSize
+                                    ? sizeFormatter(maxCacheSize)
+                                    : "512M"}
+                            </ThemeText>
+                        ),
+                        onPress() {
+                            showPanel("SimpleInput", {
+                                title: t("dialog.setCacheTitle"),
+                                placeholder: t("dialog.setCachePlaceholder"),
+                                onOk(text, closePanel) {
+                                    let val = parseInt(text);
+                                    if (val < 100) {
+                                        val = 100;
+                                    } else if (val > 8192) {
+                                        val = 8192;
+                                    }
+                                    if (val >= 100 && val <= 8192) {
+                                        Config.setConfig(
+                                            "basic.maxCacheSize",
+                                            val * 1024 * 1024,
+                                        );
+                                        closePanel();
+                                        Toast.success(t("toast.cacheSetSuccess"));
+                                    }
+                                },
+                            });
+                        },
                     },
-                },
 
-                {
-                    title: t("basicSettings.cache.clearMusicCache"),
-                    right: (
-                        <ThemeText style={styles.centerText}>
-                            {sizeFormatter(cacheSize.music)}
-                        </ThemeText>
-                    ),
-                    onPress() {
-                        showDialog("SimpleDialog", {
-                            title: t("dialog.clearMusicCacheTitle"),
-                            content: t("dialog.clearMusicCacheContent"),
-                            async onOk() {
-                                await clearCache("music");
-                                Toast.success(t("toast.musicCacheCleared"));
-                                refreshCacheSize();
-                            },
-                        });
+                    {
+                        title: t("basicSettings.cache.clearMusicCache"),
+                        right: (
+                            <ThemeText style={styles.centerText}>
+                                {sizeFormatter(cacheSize.music)}
+                            </ThemeText>
+                        ),
+                        onPress() {
+                            showDialog("SimpleDialog", {
+                                title: t("dialog.clearMusicCacheTitle"),
+                                content: t("dialog.clearMusicCacheContent"),
+                                async onOk() {
+                                    await clearCache("music");
+                                    Toast.success(t("toast.musicCacheCleared"));
+                                    refreshCacheSize();
+                                },
+                            });
+                        },
                     },
-                },
+                ] : []),
                 {
                     title: t("basicSettings.cache.clearLyricCache"),
                     right: (
@@ -764,6 +768,7 @@ function LyricSetting() {
                 <ListItem.Content title={autoSearchLyric.title} />
                 {autoSearchLyric.right}
             </ListItem>
+            {isStatusBarLyricSupported && <>
             <ListItem
                 withHorizontalPadding
                 heightType="small"
@@ -906,6 +911,7 @@ function LyricSetting() {
                     color={backgroundColor ?? "#84888153"}
                 />
             </ListItem>
+            </>}
         </View>
     );
 }

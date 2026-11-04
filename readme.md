@@ -15,7 +15,7 @@
 
 ## 简介
 
-一个插件化、定制化、无广告的免费音乐播放器，目前只支持 Android 和 Harmony OS。
+一个插件化、定制化、无广告的免费音乐播放器。上游支持 Android 和 Harmony OS；本分支增加 iOS 适配，构建与使用说明见 [iOS 文档](docs/ios.md)。
 
 > **桌面版来啦：<https://github.com/maotoumao/MusicFreeDesktop>**
 

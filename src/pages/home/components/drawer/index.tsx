@@ -164,14 +164,14 @@ function HomeDrawer(props: any) {
                     <ListItem
                         withHorizontalPadding
                         key={"update"}
-                        onPress={() => {
+                        onPress={Platform.OS === "ios" ? undefined : () => {
                             checkUpdateAndShowResult(true);
                         }}>
                         <ListItem.ListItemIcon
                             icon={"arrow-path"}
                             width={rpx(48)}
                         />
-                        <ListItem.Content title={t("sidebar.checkUpdate")} />
+                        <ListItem.Content title={t(Platform.OS === "ios" ? "sidebar.currentVersion" : "sidebar.checkUpdate")} />
                         <ListItem.ListItemText
                             position="right"
                             fontSize="subTitle">
@@ -194,6 +194,7 @@ function HomeDrawer(props: any) {
                     </ListItem>
                 </View>
 
+                {Platform.OS === "android" && <>
                 <Divider />
                 <ListItem
                     withHorizontalPadding
@@ -219,6 +220,7 @@ function HomeDrawer(props: any) {
                     />
                     <ListItem.Content title={t("sidebar.exitApp")} />
                 </ListItem>
+                </>}
             </DrawerContentScrollView>
         </>
     );

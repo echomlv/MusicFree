@@ -4,12 +4,15 @@ import checkUpdate from "@/utils/checkUpdate";
 import Toast from "@/utils/toast";
 import { compare } from "compare-versions";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import i18n from "@/core/i18n";
 
 export const checkUpdateAndShowResult = (
     showToast = false,
     checkSkip = false,
 ) => {
+    // The upstream update feed distributes APKs, not iOS builds.
+    if (Platform.OS === "ios") return;
     checkUpdate().then(updateInfo => {
         if (updateInfo?.needUpdate) {
             const { data } = updateInfo;

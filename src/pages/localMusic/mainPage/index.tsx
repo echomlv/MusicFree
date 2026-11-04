@@ -1,4 +1,6 @@
 import React from "react";
+import { Platform } from "react-native";
+import { importLocalMusicFiles } from "@/utils/localMusicImport";
 import LocalMusicSheet from "@/core/localMusicSheet";
 import { ROUTE_PATH, useNavigate } from "@/core/router";
 import LocalMusicList from "./localMusicList";
@@ -30,8 +32,16 @@ export default function MainPage() {
                 menu={[
                     {
                         icon: "magnifying-glass",
-                        title: t("localMusic.scanLocalMusic"),
+                        title: Platform.OS === "ios" ? t("localMusic.importMusic") : t("localMusic.scanLocalMusic"),
                         async onPress() {
+                            if (Platform.OS === "ios") {
+                                try {
+                                    if (await importLocalMusicFiles()) Toast.success(t("toast.importSuccess"));
+                                } catch (error: any) {
+                                    Toast.warn(error?.message ?? String(error));
+                                }
+                                return;
+                            }
                             navigate(ROUTE_PATH.FILE_SELECTOR, {
                                 fileType: "folder",
                                 multi: true,

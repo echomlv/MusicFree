@@ -13,9 +13,10 @@ import useHardwareBack from "@/hooks/useHardwareBack";
 import rpx from "@/utils/rpx";
 import { useNavigation } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import {
     ExternalStorageDirectoryPath,
+    DocumentDirectoryPath,
     exists,
     getAllExternalFilesDirs,
     readDir,
@@ -45,7 +46,7 @@ export default function FileSelector() {
     } = useParams<"file-selector">() ?? {};
 
     const [currentPath, setCurrentPath] = useState<IPathItem>({
-        path: "/",
+        path: Platform.OS === "ios" ? DocumentDirectoryPath : "/",
         parent: null,
     });
     const currentPathRef = useRef<IPathItem>(currentPath);
@@ -234,6 +235,8 @@ export default function FileSelector() {
                         // 返回上一级
                         if (currentPath.parent !== null) {
                             setCurrentPath(currentPath.parent);
+                        } else {
+                            navigation.goBack();
                         }
                     }}
                 />
@@ -242,7 +245,7 @@ export default function FileSelector() {
                     ellipsizeMode="head"
                     fontColor={"appBarText"}
                     style={style.headerPath}>
-                    {currentPath.path}
+                    {Platform.OS === "ios" ? `MusicFree${currentPath.path.slice(DocumentDirectoryPath.length)}` : currentPath.path}
                 </ThemeText>
             </View>
             {loading ? (

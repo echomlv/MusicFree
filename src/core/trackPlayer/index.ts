@@ -1,6 +1,5 @@
 import { getCurrentDialog, showDialog } from "@/components/dialogs/useDialog";
 import {
-    internalFakeSoundKey,
     sortIndexSymbol,
     timeStampSymbol,
 } from "@/constants/commonConst";
@@ -39,6 +38,7 @@ import minDistance from "@/utils/minDistance";
 import { IPluginManager } from "@/types/core/pluginManager";
 import { ImgAsset } from "@/constants/assetsConst";
 import { resolveImportedAssetOrPath } from "@/utils/fileUtils";
+import { consumeSleepTimer } from "@/utils/sleepTimerState";
 
 
 
@@ -65,6 +65,7 @@ class TrackPlayer extends EventEmitter<{
     private currentIndex = -1;
     // 音乐播放器服务是否启动
     private serviceInited = false;
+    private advancingQueue = false;
     // 播放队列索引map
     private playListIndexMap = createMediaIndexMap([] as IMusic.IMusicItem[]);
 
@@ -76,8 +77,6 @@ class TrackPlayer extends EventEmitter<{
         [MusicRepeatMode.SINGLE]: MusicRepeatMode.QUEUE,
         [MusicRepeatMode.QUEUE]: MusicRepeatMode.SHUFFLE,
     };
-    private static fakeAudioUrl = "musicfree://fake-audio";
-    private static proposedAudioUrl = "musicfree://proposed-audio";
 
     constructor() {
         super();
@@ -182,28 +181,29 @@ class TrackPlayer extends EventEmitter<{
 
         if (!this.serviceInited) {
 
-            /**
-             * 此事件可能会被触发多次（比如直接替换queue） 参考代码：https://github.com/doublesymmetry/KotlinAudio
-             */
+            // iOS cannot load the Android implementation's musicfree:// placeholder tracks.
+            // Resolve one actual source at a time and advance when AVPlayer reaches its end.
             ReactNativeTrackPlayer.addEventListener(
-                Event.PlaybackActiveTrackChanged,
-                async evt => {
-                    if (
-                        evt.index === 1 &&
-                        evt.lastIndex === 0 &&
-                        evt.track?.url === TrackPlayer.fakeAudioUrl
-                    ) {
-                        trace("队列末尾，播放下一首");
+                Event.PlaybackQueueEnded,
+                async () => {
+                    if (this.advancingQueue) return;
+                    this.advancingQueue = true;
+                    try {
+                        const endedTrack = await ReactNativeTrackPlayer.getActiveTrack();
+                        const { state } = await ReactNativeTrackPlayer.getPlaybackState();
+                        if (state !== State.Ended || !endedTrack || !this.isCurrentMusic(endedTrack as IMusic.IMusicItem)) return;
+                        if (consumeSleepTimer(true)) {
+                            await ReactNativeTrackPlayer.reset();
+                            return;
+                        }
                         this.emit(TrackPlayerEvents.PlayEnd);
-                        if (
-                            this.repeatMode ===
-                            MusicRepeatMode.SINGLE
-                        ) {
+                        if (this.repeatMode === MusicRepeatMode.SINGLE) {
                             await this.play(null, true);
                         } else {
-                            // 当前生效的歌曲是下一曲的标记
                             await this.skipToNext();
                         }
+                    } finally {
+                        this.advancingQueue = false;
                     }
                 },
             );
@@ -226,7 +226,7 @@ class TrackPlayer extends EventEmitter<{
                     }
 
                     if (
-                        currentTrack?.url !== TrackPlayer.fakeAudioUrl && currentTrack?.url !== TrackPlayer.proposedAudioUrl &&
+                        currentTrack && this.isCurrentMusic(currentTrack as IMusic.IMusicItem) &&
                         (await ReactNativeTrackPlayer.getActiveTrackIndex()) === 0 &&
                         e.message &&
                         e.message !== "android-io-file-not-found"
@@ -442,7 +442,7 @@ class TrackPlayer extends EventEmitter<{
                     const currentState = (
                         await ReactNativeTrackPlayer.getPlaybackState()
                     ).state;
-                    if (currentState === State.Stopped) {
+                    if (currentState === State.Stopped || currentState === State.Ended) {
                         await this.setTrackSource(currentTrack);
                     }
                     if (currentState !== State.Playing) {
@@ -463,11 +463,7 @@ class TrackPlayer extends EventEmitter<{
 
             // 4. 更新列表状态和当前音乐
             this.setCurrentMusic(musicItem);
-            await ReactNativeTrackPlayer.setQueue([{
-                ...musicItem,
-                url: TrackPlayer.proposedAudioUrl,
-                artwork: resolveImportedAssetOrPath(musicItem.artwork?.trim?.()?.length ? musicItem.artwork : ImgAsset.albumDefault) as unknown as any,
-            }, this.getFakeNextTrack()]);
+            await ReactNativeTrackPlayer.reset();
 
             // 5. 获取音源
             let track: IMusic.IMusicItem;
@@ -782,11 +778,6 @@ class TrackPlayer extends EventEmitter<{
         }
 
         getDefaultStore().set(repeatModeAtom, mode);
-        // 更新下一首歌的信息
-        ReactNativeTrackPlayer.updateMetadataForTrack(
-            1,
-            this.getFakeNextTrack(),
-        );
         // 记录
         PersistStatus.set("music.repeatMode", mode);
     }
@@ -802,7 +793,7 @@ class TrackPlayer extends EventEmitter<{
         if (!clonedTrack) {
             return;
         }
-        await ReactNativeTrackPlayer.setQueue([clonedTrack, this.getFakeNextTrack()]);
+        await ReactNativeTrackPlayer.setQueue([clonedTrack]);
         PersistStatus.set("music.musicItem", track as IMusic.IMusicItem);
         PersistStatus.set("music.progress", 0);
         if (autoPlay) {
@@ -875,33 +866,6 @@ class TrackPlayer extends EventEmitter<{
             return a[sortIndexSymbol] - b[sortIndexSymbol];
         });
     }
-
-    private getFakeNextTrack() {
-        let track: Track | undefined;
-        const repeatMode = this.repeatMode;
-        if (repeatMode === MusicRepeatMode.SINGLE) {
-            // 单曲循环
-            track = this.getPlayListMusicAt(this.currentIndex) as Track;
-        } else {
-            // 下一曲
-            track = this.getPlayListMusicAt(this.currentIndex + 1) as Track;
-        }
-
-        if (track) {
-            return produce(track, _ => {
-                _.url = TrackPlayer.fakeAudioUrl;
-                _.$ = internalFakeSoundKey;
-                _.artwork = resolveImportedAssetOrPath(ImgAsset.albumDefault) as unknown as any;
-            });
-        } else {
-            // 只有列表长度为0时才会出现的特殊情况
-            return {
-                url: TrackPlayer.fakeAudioUrl,
-                $: internalFakeSoundKey,
-            } as Track;
-        }
-    }
-
 
     private async handlePlayFail() {
         // 如果自动跳转下一曲, 500s后自动跳转

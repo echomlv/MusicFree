@@ -86,3 +86,12 @@ scripts/
 .expo
 dist/
 web-build/
+
+.agents/local/
+
+
+# iOS
+ios/Podfile.lock
+ios/MusicFree/*.xcprivacy
+ios/MusicFree.xcworkspace/
+Gemfile.lock

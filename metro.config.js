@@ -19,6 +19,12 @@ const config = {
     resolver: {
         assetExts: assetExts.filter(ext => ext !== 'svg'),
         sourceExts: [...sourceExts, 'svg'],
+        // Native dependencies, build output and local reference checkouts are not JS sources.
+        blockList: [
+            /[/\\]\.agents[/\\].*/,
+            /[/\\]ios[/\\](?:Pods|build)[/\\].*/,
+            /[/\\]vendor[/\\]bundle[/\\].*/,
+        ],
     },
 };
 

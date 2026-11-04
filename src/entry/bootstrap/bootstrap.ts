@@ -13,7 +13,6 @@ import MusicSheet from "@/core/musicSheet";
 import PluginManager from "@/core/pluginManager";
 import Theme from "@/core/theme";
 import TrackPlayer from "@/core/trackPlayer";
-import NativeUtils from "@/native/utils";
 import { checkAndCreateDir } from "@/utils/fileUtils";
 import { errorLog, trace } from "@/utils/log";
 import { IPerfLogger, perfLogger } from "@/utils/perfLogger";
@@ -21,8 +20,7 @@ import PersistStatus from "@/utils/persistStatus";
 import Toast from "@/utils/toast";
 import * as SplashScreen from "expo-splash-screen";
 import {  Linking, Platform } from "react-native";
-import { PERMISSIONS, check, request } from "react-native-permissions";
-import RNTrackPlayer, { AppKilledPlaybackBehavior, Capability } from "react-native-track-player";
+import RNTrackPlayer, { AppKilledPlaybackBehavior, Capability, IOSCategory, IOSCategoryMode } from "react-native-track-player";
 import i18n from "@/core/i18n";
 import bootstrapAtom from "./bootstrap.atom";
 import { getDefaultStore } from "jotai";
@@ -46,33 +44,7 @@ async function bootstrapImpl() {
         )
         .catch(console.warn); // it's good to explicitly catch and inspect any error
     const logger = perfLogger();
-    // 1. 检查权限
-    if (Platform.OS === "android" && Platform.Version >= 30) {
-        const hasPermission = await NativeUtils.checkStoragePermission();
-        if (
-            !hasPermission &&
-            !PersistStatus.get("app.skipBootstrapStorageDialog")
-        ) {
-            showDialog("CheckStorage");
-        }
-    } else {
-        const [readStoragePermission, writeStoragePermission] =
-            await Promise.all([
-                check(PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE),
-                check(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE),
-            ]);
-        if (
-            !(
-                readStoragePermission === "granted" &&
-                writeStoragePermission === "granted"
-            )
-        ) {
-            await request(PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE);
-            await request(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE);
-        }
-    }
-    logger.mark("权限检查完成");
-
+    // Documents and picker-imported files need no broad storage permission on iOS.
     // 2. 数据初始化
     /** 初始化路径 */
     await setupFolder();
@@ -84,6 +56,10 @@ async function bootstrapImpl() {
     // 加载配置
     await Promise.all([
         Config.setup().then(() => {
+            if (Platform.OS === "ios") {
+                Config.setConfig("lyric.showStatusBarLyric", false);
+                Config.setConfig("basic.downloadPath", pathConst.downloadMusicPath);
+            }
             logger.mark("Config");
         }),
         MusicSheet.setup().then(() => {
@@ -141,6 +117,7 @@ async function setupFolder() {
         checkAndCreateDir(pathConst.lrcCachePath),
         checkAndCreateDir(pathConst.downloadCachePath),
         checkAndCreateDir(pathConst.localLrcPath),
+        checkAndCreateDir(pathConst.importedMusicPath),
         checkAndCreateDir(pathConst.downloadPath).then(() => {
             checkAndCreateDir(pathConst.downloadMusicPath);
         }),
@@ -150,6 +127,9 @@ async function setupFolder() {
 export async function initTrackPlayer(logger?: IPerfLogger) {
     try {
         await RNTrackPlayer.setupPlayer({
+            iosCategory: IOSCategory.Playback,
+            iosCategoryMode: IOSCategoryMode.Default,
+            autoHandleInterruptions: true,
             maxCacheSize:
                 Config.getConfig("basic.maxCacheSize") ?? 1024 * 1024 * 512,
         });
@@ -163,7 +143,7 @@ export async function initTrackPlayer(logger?: IPerfLogger) {
     }
     logger?.mark("加载播放器");
 
-    const capabilities = Config.getConfig("basic.showExitOnNotification")
+    const capabilities = Platform.OS === "android" && Config.getConfig("basic.showExitOnNotification")
         ? [
             Capability.Play,
             Capability.Pause,
@@ -185,7 +165,7 @@ export async function initTrackPlayer(logger?: IPerfLogger) {
             appKilledPlaybackBehavior:
                 AppKilledPlaybackBehavior.ContinuePlayback,
         },
-        capabilities: capabilities,
+        capabilities: [...capabilities, Capability.SeekTo],
         compactCapabilities: capabilities,
         notificationCapabilities: [...capabilities, Capability.SeekTo],
     });
@@ -224,6 +204,7 @@ async function extraMakeup() {
     } catch { }
 
     async function handleLinkingUrl(url: string) {
+        if (url.startsWith("file://")) url = decodeURIComponent(url.slice(7));
         // 插件
         try {
             if (url.startsWith("musicfree://install/")) {
@@ -237,7 +218,7 @@ async function extraMakeup() {
                     ),
                 );
                 Toast.success("安装成功~");
-            } else if (url.endsWith(".js")) {
+            } else if (url.toLowerCase().endsWith(".js")) {
                 PluginManager.installPluginFromLocalFile(url, {
                     notCheckVersion: Config.getConfig(
                         "basic.notCheckPluginVersion",
@@ -254,7 +235,7 @@ async function extraMakeup() {
                         console.log(e);
                         Toast.warn(e?.message ?? "无法识别此插件");
                     });
-            } else if (supportLocalMediaType.some(it => url.endsWith(it))) {
+            } else if (supportLocalMediaType.some(it => url.toLowerCase().endsWith(it))) {
                 // 本地播放
                 const musicItem = await PluginManager.getByHash(
                     localPluginHash,

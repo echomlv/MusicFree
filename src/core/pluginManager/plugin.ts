@@ -12,6 +12,7 @@ import { getMediaExtraProperty, patchMediaExtra } from "@/utils/mediaExtra";
 import { getLocalPath, isSameMediaItem, resetMediaItem } from "@/utils/mediaUtils";
 import notImplementedFunction from "@/utils/notImplementedFunction.ts";
 import axios from "axios";
+import { Platform } from "react-native";
 import bigInt from "big-integer";
 import * as cheerio from "cheerio";
 import { satisfies } from "compare-versions";
@@ -922,11 +923,11 @@ export class Plugin {
                         return this.getUserVariables() ?? {};
                     },
                     appVersion,
-                    os: "android",
+                    os: Platform.OS,
                     lang: "zh-CN",
                 };
                 const _process = {
-                    platform: "android",
+                    platform: Platform.OS,
                     version: appVersion,
                     env,
                 };
@@ -1082,7 +1083,7 @@ const localFilePluginDefine: IPlugin.IPluginDefine = {
             meta = await Mp3Util.getBasicMeta(urlLike);
             const fileStat = await stat(urlLike);
             id =
-                CryptoJs.MD5(fileStat.originalFilepath).toString(
+                CryptoJs.MD5(fileStat.originalFilepath || fileStat.path || urlLike).toString(
                     CryptoJs.enc.Hex,
                 ) || nanoid();
         } catch {

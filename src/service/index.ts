@@ -3,6 +3,8 @@ import RNTrackPlayer, { Event, State } from "react-native-track-player";
 import TrackPlayer from "@/core/trackPlayer";
 import { musicIsPaused } from "@/utils/trackUtils";
 import PersistStatus from "@/utils/persistStatus";
+import { Platform } from "react-native";
+import { consumeSleepTimer } from "@/utils/sleepTimerState";
 
 let resumeState: State | null;
 module.exports = async function () {
@@ -19,6 +21,8 @@ module.exports = async function () {
     RNTrackPlayer.addEventListener(
         Event.RemoteDuck,
         async ({ paused, permanent }) => {
+            // RNTrackPlayer's iOS audio session handles interruption recovery.
+            if (Platform.OS === "ios") return;
             if (Config.getConfig("basic.notInterrupt")) {
                 return;
             }
@@ -57,6 +61,7 @@ module.exports = async function () {
 
     RNTrackPlayer.addEventListener(Event.PlaybackProgressUpdated, evt => {
         PersistStatus.set("music.progress", evt.position);
+        if (consumeSleepTimer()) void TrackPlayer.reset();
     });
 
     RNTrackPlayer.addEventListener(Event.RemoteStop, async () => {

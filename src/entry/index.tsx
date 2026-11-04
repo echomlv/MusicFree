@@ -13,7 +13,7 @@ import globalStyle from "@/constants/globalStyle";
 import Theme from "@/core/theme";
 import { BootstrapComponent } from "./bootstrap/BootstrapComponent";
 import { ToastBaseComponent } from "@/components/base/toast";
-import { StatusBar } from "react-native";
+import { Platform, StatusBar } from "react-native";
 import { ReduceMotion, ReducedMotionConfig } from "react-native-reanimated";
 import { routes } from "@/core/router/routes.tsx";
 import ErrorBoundary from "@/components/errorBoundary";
@@ -22,8 +22,10 @@ import ErrorBoundary from "@/components/errorBoundary";
  * 字体颜色
  */
 
-StatusBar.setBackgroundColor("transparent");
-StatusBar.setTranslucent(true);
+if (Platform.OS === "android") {
+    StatusBar.setBackgroundColor("transparent");
+    StatusBar.setTranslucent(true);
+}
 
 bootstrap();
 const Stack = createNativeStackNavigator<any>();

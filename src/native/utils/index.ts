@@ -1,4 +1,4 @@
-import { NativeModule, NativeModules } from "react-native";
+import { Dimensions, NativeModule, NativeModules, Platform } from "react-native";
 
 interface INativeUtils extends NativeModule {
     exitApp: () => void;
@@ -7,6 +7,12 @@ interface INativeUtils extends NativeModule {
     getWindowDimensions: () => { width: number, height: number }; // Fix bug: https://github.com/facebook/react-native/issues/47080
 }
 
-const NativeUtils = NativeModules.NativeUtils;
+const NativeUtils: INativeUtils = Platform.OS === "ios" ? {
+    // iOS apps stop playback rather than terminating their own process.
+    exitApp: () => {},
+    checkStoragePermission: async () => true,
+    requestStoragePermission: () => {},
+    getWindowDimensions: () => Dimensions.get("window"),
+} : NativeModules.NativeUtils;
 
 export default NativeUtils as INativeUtils;

@@ -3,7 +3,9 @@ import Backup from "@/core/backup";
 import { ROUTE_PATH, useNavigate } from "@/core/router";
 import Toast from "@/utils/toast";
 import React from "react";
-import { ScrollView, StyleSheet } from "react-native";
+import { Platform, ScrollView, StyleSheet } from "react-native";
+import Share from "react-native-share";
+import pathConst from "@/constants/pathConst";
 
 import { showDialog } from "@/components/dialogs/useDialog";
 import { showPanel } from "@/components/panels/usePanel";
@@ -30,6 +32,16 @@ export default function BackupSetting() {
 
 
     const onBackupToLocal = async () => {
+        if (Platform.OS === "ios") {
+            try {
+                const filePath = `${pathConst.dataPath}backup.json`;
+                await writeInChunks(filePath, Backup.backup());
+                await Share.open({ url: `file://${filePath}`, type: "application/json", failOnCancel: false });
+            } catch (error: any) {
+                Toast.warn(t("toast.backupFail", { reason: error?.message ?? String(error) }));
+            }
+            return;
+        }
         navigate(ROUTE_PATH.FILE_SELECTOR, {
             fileType: "folder",
             multi: false,
