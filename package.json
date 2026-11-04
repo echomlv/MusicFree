@@ -1,6 +1,7 @@
 {
   "name": "MusicFree",
   "version": "0.6.2",
+  "versionCode": 1,
   "private": true,
   "license": "AGPL",
   "author": {
