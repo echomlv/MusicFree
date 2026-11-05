@@ -47,7 +47,11 @@ Range request and returned the full file with 200. This fixture deliberately
 rejects ranges with 416 to exercise recovery; it does not assert that qs returns
 416.
 
-Mocks run locally only; unmodeled routes return 501. The slow fixture is
-available but was not part of the recorded smoke run. Restart after handler
+An additional native cancellation check on 2026-11-05 used /slow.wav: cancellation
+returned "Download has been aborted" after about 239 ms, and a following download
+of /whole.wav completed successfully. This was separate from the reusable smoke
+client's five checks. No real CDN cancellation guarantee is inferred from it.
+
+Mocks run locally only; unmodeled routes return 501. Restart after handler
 edits. No mock was deployed or pushed. The installed CLI does not recognize
 postman status; local simulation creation/execution were independently verified.
