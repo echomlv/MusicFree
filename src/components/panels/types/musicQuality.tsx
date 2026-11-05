@@ -38,6 +38,7 @@ export default function MusicQuality(props: IMusicQualityProps) {
     return (
         <PanelBase
             height={rpx(520)}
+            keyboardAvoidBehavior="none"
             renderBody={() => (
                 <>
                     <PanelHeader

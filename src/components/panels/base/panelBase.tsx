@@ -165,7 +165,11 @@ export default function (props: IPanelBaseProps) {
                     bottom: 0,
                 } : {
                     top: positionMethod === "top" ? (NativeUtils.getWindowDimensions().height + safeAreaInsets.top) - height - safeAreaInsets.bottom : undefined,
-                    bottom: positionMethod === "bottom" ? 0 : undefined,
+                    // The navigator content ends above the persistent music bar.
+                    // Extend bottom sheets through that area so the backdrop stays continuous.
+                    bottom: positionMethod === "bottom"
+                        ? -(rpx(132) + safeAreaInsets.bottom)
+                        : undefined,
                     height: height,
                 },
                 {

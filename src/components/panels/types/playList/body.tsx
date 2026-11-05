@@ -83,6 +83,7 @@ interface IBodyProps {
 }
 export default function Body(props: IBodyProps) {
     const { loading } = props;
+    const colors = useColors();
     const playList = usePlayList();
     const currentMusicItem = useCurrentMusic();
     const listRef = useRef<FlashList<IMusic.IMusicItem> | null>();
@@ -115,6 +116,7 @@ export default function Body(props: IBodyProps) {
             style={[
                 style.playList,
                 {
+                    backgroundColor: colors.backdrop,
                     paddingBottom: safeAreaInsets.bottom,
                 },
             ]}>

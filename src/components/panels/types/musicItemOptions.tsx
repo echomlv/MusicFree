@@ -31,6 +31,7 @@ import { getMediaExtraProperty } from "@/utils/mediaExtra";
 import lyricManager from "@/core/lyricManager";
 import { useI18N } from "@/core/i18n";
 import pluginManager from "@/core/pluginManager";
+import useColors from "@/hooks/useColors";
 
 interface IMusicItemOptionsProps {
     /** 歌曲信息 */
@@ -53,6 +54,7 @@ interface IOption {
 export default function MusicItemOptions(props: IMusicItemOptionsProps) {
     const { musicItem, musicSheet, from } = props ?? {};
     const { t } = useI18N();
+    const colors = useColors();
 
     const safeAreaInsets = useSafeAreaInsets();
 
@@ -235,6 +237,7 @@ export default function MusicItemOptions(props: IMusicItemOptionsProps) {
 
     return (
         <PanelBase
+            keyboardAvoidBehavior="none"
             renderBody={() => (
                 <>
                     <View style={style.header}>
@@ -257,7 +260,7 @@ export default function MusicItemOptions(props: IMusicItemOptionsProps) {
                         </View>
                     </View>
                     <Divider />
-                    <View style={style.wrapper}>
+                    <View style={[style.wrapper, { backgroundColor: colors.backdrop }]}>
                         <FlatList
                             data={options}
                             getItemLayout={(_, index) => ({
