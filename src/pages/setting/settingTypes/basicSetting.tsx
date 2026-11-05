@@ -21,7 +21,7 @@ import Toast from "@/utils/toast";
 import Clipboard from "@react-native-clipboard/clipboard";
 import Slider from "@react-native-community/slider";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, SectionList, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import { readdir } from "react-native-fs";
 import { FlatList, ScrollView } from "react-native-gesture-handler";
 
@@ -141,9 +141,8 @@ export default function BasicSetting() {
 
     const [cacheSize, refreshCacheSize] = useCacheSize();
 
-    const sectionListRef = useRef<SectionList | null>(null);
-    const pendingSectionIndex = useRef<number | null>(null);
-    // const titleListRef = useRef<FlatList | null>(null);
+    const scrollViewRef = useRef<ScrollView | null>(null);
+    const sectionOffsets = useRef<Record<number, number>>({});
 
     useEffect(() => {
         refreshCacheSize();
@@ -605,13 +604,13 @@ export default function BasicSetting() {
                 renderItem={({ item, index }) => (
                     <TouchableOpacity
                         onPress={() => {
-                            pendingSectionIndex.current = index;
-                            sectionListRef.current?.scrollToLocation({
-                                sectionIndex: index,
-                                itemIndex: 0,
-                                viewPosition: 0,
-                                animated: true,
-                            });
+                            const offset = sectionOffsets.current[index];
+                            if (offset !== undefined) {
+                                scrollViewRef.current?.scrollTo({
+                                    y: Math.max(0, offset),
+                                    animated: true,
+                                });
+                            }
                         }}
                         activeOpacity={0.7}
                         style={styles.headerItemStyle}>
@@ -619,50 +618,40 @@ export default function BasicSetting() {
                     </TouchableOpacity>
                 )}
             />
-            <SectionList
-                sections={basicOptions}
-                initialNumToRender={100}
-                maxToRenderPerBatch={100}
-                windowSize={20}
-                renderSectionHeader={({ section }) => (
-                    <View style={styles.sectionHeader}>
-                        <ThemeText
-                            fontSize="subTitle"
-                            fontColor="textSecondary"
-                            fontWeight="bold">
-                            {section.title}
-                        </ThemeText>
-                    </View>
-                )}
-                ref={sectionListRef}
-                onScrollToIndexFailed={({ index }) => {
-                    setTimeout(() => {
-                        const sectionIndex = pendingSectionIndex.current ?? index;
-                        sectionListRef.current?.scrollToLocation({
-                            sectionIndex,
-                            itemIndex: 0,
-                            viewPosition: 0,
-                            animated: true,
-                        });
-                    }, 100);
-                }}
-                renderSectionFooter={({ section }) => {
-                    return section.footer ?? null;
-                }}
-                renderItem={({ item }) => {
-                    const Right = item.right;
+            <ScrollView ref={scrollViewRef} style={styles.settingsScrollView}>
+                {basicOptions.map((section, sectionIndex) => (
+                    <View
+                        key={section.title}
+                        onLayout={({ nativeEvent }) => {
+                            sectionOffsets.current[sectionIndex] = nativeEvent.layout.y;
+                        }}>
+                        <View style={styles.sectionHeader}>
+                            <ThemeText
+                                fontSize="subTitle"
+                                fontColor="textSecondary"
+                                fontWeight="bold">
+                                {section.title}
+                            </ThemeText>
+                        </View>
+                        {section.data.map((item, itemIndex) => {
+                            const Right = item.right;
 
-                    return (
-                        <ListItem
-                            withHorizontalPadding
-                            heightType="small"
-                            onPress={item.onPress}>
-                            <ListItem.Content title={item.title} />
-                            {Right}
-                        </ListItem>
-                    );
-                }}
-            />
+                            return (
+                                <ListItem
+                                    key={`${sectionIndex}-${itemIndex}-${item.title}`}
+                                    withHorizontalPadding
+                                    heightType="small"
+                                    onPress={item.onPress}>
+                                    <ListItem.Content title={item.title} />
+                                    {Right}
+                                </ListItem>
+                            );
+                        })}
+                        {section.footer ?? null}
+                    </View>
+                ))}
+                <View style={styles.settingsFooter} />
+            </ScrollView>
         </View>
     );
 }
@@ -671,6 +660,9 @@ const styles = StyleSheet.create({
     wrapper: {
         width: "100%",
         paddingBottom: rpx(24),
+        flex: 1,
+    },
+    settingsScrollView: {
         flex: 1,
     },
     centerText: {
@@ -697,6 +689,9 @@ const styles = StyleSheet.create({
         height: rpx(80),
         justifyContent: "center",
         alignItems: "center",
+    },
+    settingsFooter: {
+        height: rpx(48),
     },
 });
 
