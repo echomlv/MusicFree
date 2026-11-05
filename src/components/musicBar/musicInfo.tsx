@@ -81,6 +81,7 @@ const BarMusicItem = memo(
     _BarMusicItem,
     (prev, curr) =>
         prev.musicItem === curr.musicItem &&
+        prev.playbackHint === curr.playbackHint &&
         prev.activeIndex === curr.activeIndex,
 );
 
