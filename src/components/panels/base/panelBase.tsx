@@ -53,7 +53,8 @@ export default function (props: IPanelBaseProps) {
     const timerRef = useRef<any>();
     const safeAreaInsets = useSafeAreaInsets();
     const orientation = useOrientation();
-    const panelHeight = positionMethod === "bottom"
+    const extendsBottomArea = positionMethod === "bottom" && keyboardAvoidBehavior === "none";
+    const panelHeight = extendsBottomArea
         ? height + rpx(132) + safeAreaInsets.bottom
         : height;
     const useAnimatedBase = useMemo(
@@ -168,9 +169,9 @@ export default function (props: IPanelBaseProps) {
                     bottom: 0,
                 } : {
                     top: positionMethod === "top" ? (NativeUtils.getWindowDimensions().height + safeAreaInsets.top) - height - safeAreaInsets.bottom : undefined,
-                    bottom: positionMethod === "bottom"
+                    bottom: extendsBottomArea
                         ? -(rpx(132) + safeAreaInsets.bottom)
-                        : undefined,
+                        : positionMethod === "bottom" ? 0 : undefined,
                     height: panelHeight,
                 },
                 {
