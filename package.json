@@ -12,7 +12,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx src --fix",
-    "start": "react-native start",
+    "start": "sh ./scripts/start-metro.sh",
     "clean": "cd ./android && ./gradlew clean",
     "test": "jest",
     "commit-lint": "commitlint --edit",

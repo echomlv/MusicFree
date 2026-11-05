@@ -16,6 +16,8 @@ bundle exec pod install --project-directory=ios
 npm start
 ```
 
+`npm start` 会先检查 Watchman、提高 Metro 的文件描述符上限，并重新建立项目监视。如果提示缺少 Watchman，请执行 `brew install watchman` 后重试。不要直接用 `npx react-native start` 绕过这个启动脚本，否则 macOS 可能回退到 NodeWatcher 并报 `EMFILE: too many open files, watch`。
+
 如果尚未配置 rbenv，将 `eval "$(rbenv init - zsh)"` 加到 `~/.zshrc`，让新终端也能自动选择项目 Ruby。Ruby 3.3 自带 Bundler，执行 `bundle install` 前可用 `ruby -v` 和 `which ruby` 检查：应显示 Ruby 3.3.12，路径应指向 rbenv 的 shim，而不是 `/usr/bin/ruby`。
 
 如果 `bundle install` 报 `json` 的 `extconf failed`，并且日志路径包含 `vendor/bundle/ruby/2.6.0` 或提示缺少 `ruby/config.h`，说明仍在使用 macOS 系统 Ruby。执行上面的 rbenv 初始化和安装命令后重试 `bundle install`。Node.js 的 `nvm use` 不会切换 Ruby；无需对系统 Ruby 执行 `sudo gem install`。
