@@ -1,5 +1,6 @@
 {
     "player.playbackFailed": "無法播放「{title}」，請檢查網路或更換音源外掛",
+    "player.tryingAlternateSource": "{title}，嘗試更換音源...",
     "common.setting": "設定",
     "common.software": "軟體",
     "common.language": "語言",

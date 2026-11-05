@@ -8,7 +8,7 @@ import ThemeText from "../base/themeText";
 import useColors from "@/hooks/useColors";
 import { ROUTE_PATH, useNavigate } from "@/core/router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import TrackPlayer, { usePlayList } from "@/core/trackPlayer";
+import TrackPlayer, { usePlayList, usePlaybackHint } from "@/core/trackPlayer";
 import Animated, {
     SharedValue,
     runOnJS,
@@ -21,11 +21,12 @@ import { timingConfig } from "@/constants/commonConst";
 
 interface IBarMusicItemProps {
     musicItem: IMusic.IMusicItem | null;
+    playbackHint?: string | null;
     activeIndex: number; // 当前展示的是0/1/2
     transformSharedValue: SharedValue<number>;
 }
 function _BarMusicItem(props: IBarMusicItemProps) {
-    const { musicItem, activeIndex, transformSharedValue } = props;
+    const { musicItem, playbackHint, activeIndex, transformSharedValue } = props;
     const colors = useColors();
     const safeAreaInsets = useSafeAreaInsets();
 
@@ -59,7 +60,7 @@ function _BarMusicItem(props: IBarMusicItemProps) {
                 style={styles.textWrapper}
                 numberOfLines={1}>
                 <ThemeText fontSize="content" fontColor="musicBarText">
-                    {musicItem?.title}
+                    {playbackHint ?? musicItem?.title}
                 </ThemeText>
                 {musicItem?.artist && (
                     <ThemeText
@@ -119,6 +120,7 @@ export default function MusicInfo(props: IMusicInfoProps) {
     const { musicItem } = props;
     const navigate = useNavigate();
     const playLists = usePlayList();
+    const playbackHint = usePlaybackHint();
     const siblingMusicItems = useMemo(() => {
         if (!musicItem) {
             return {
@@ -216,6 +218,7 @@ export default function MusicInfo(props: IMusicInfoProps) {
                 <BarMusicItem
                     transformSharedValue={transformSharedValue}
                     musicItem={musicItem}
+                    playbackHint={playbackHint}
                     activeIndex={0}
                 />
                 <BarMusicItem

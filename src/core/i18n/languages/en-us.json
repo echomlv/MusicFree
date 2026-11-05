@@ -1,5 +1,6 @@
 {
     "player.playbackFailed": "Unable to play “{title}”. Check your connection or try another source plugin.",
+    "player.tryingAlternateSource": "{title}, trying another source...",
     "common.setting": "Settings",
     "common.software": "Software",
     "common.language": "Language",

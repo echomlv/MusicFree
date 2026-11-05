@@ -50,6 +50,7 @@ const currentMusicAtom = atom<IMusic.IMusicItem | null>(null);
 const repeatModeAtom = atom<MusicRepeatMode>(MusicRepeatMode.QUEUE);
 const qualityAtom = atom<IMusic.IQualityKey>("standard");
 const playListAtom = atom<IMusic.IMusicItem[]>([]);
+const playbackHintAtom = atom<string | null>(null);
 
 
 class TrackPlayer extends EventEmitter<{
@@ -414,6 +415,7 @@ class TrackPlayer extends EventEmitter<{
     ): Promise<void> {
         this.playRequestId += 1;
         this.playbackRequested = true;
+        getDefaultStore().set(playbackHintAtom, null);
         this.fallbackDownload?.cancel();
         this.fallbackDownload = undefined;
         dismissToast("playback-error");
@@ -543,6 +545,10 @@ class TrackPlayer extends EventEmitter<{
                 if (!source && !musicItem.url) {
                     // 插件失效的情况
                     if (autoChangeSource) {
+                        getDefaultStore().set(
+                            playbackHintAtom,
+                            i18n.t("player.tryingAlternateSource", { title: musicItem.title }),
+                        );
                         // 重试
                         const similarMusic = await this.getSimilarMusic(
                             musicItem,
@@ -588,6 +594,7 @@ class TrackPlayer extends EventEmitter<{
             trace("获取音源成功", track);
             // 9. 设置音源
             await this.setTrackSource(track as Track);
+            getDefaultStore().set(playbackHintAtom, null);
 
             // 10. 获取补充信息
             let info: Partial<IMusic.IMusicItem> | null = null;
@@ -613,6 +620,7 @@ class TrackPlayer extends EventEmitter<{
                 );
             }
         } catch (e: any) {
+            getDefaultStore().set(playbackHintAtom, null);
             const message = e?.message;
             if (
                 message ===
@@ -643,6 +651,7 @@ class TrackPlayer extends EventEmitter<{
 
     async pause(): Promise<void> {
         this.playbackRequested = false;
+        getDefaultStore().set(playbackHintAtom, null);
         this.playRequestId += 1;
         this.fallbackDownload?.cancel();
         this.fallbackDownload = undefined;
@@ -942,6 +951,10 @@ class TrackPlayer extends EventEmitter<{
         if (typeof track.url !== "string" || !/^https?:\/\//i.test(track.url) ||
             track.isLiveStream || track.type === "hls" || getUrlExt(track.url) === ".m3u8") return false;
         this.fallbackRequestId = requestId;
+        getDefaultStore().set(
+            playbackHintAtom,
+            i18n.t("player.tryingAlternateSource", { title: track.title }),
+        );
         const download = downloadPlaybackSource(track.url, track.headers as Record<string, string> | undefined);
         this.fallbackDownload = download;
         try {
@@ -950,12 +963,16 @@ class TrackPlayer extends EventEmitter<{
             if (requestId !== this.playRequestId || !this.isCurrentMusic(track as IMusic.IMusicItem)) return true;
             if (!url) return false;
             await this.setTrackSource({ ...track, url, iosOriginalUrl: track.url } as Track);
+            getDefaultStore().set(playbackHintAtom, null);
             if (progress.position > 0) await this.seekTo(progress.position);
             return true;
         } catch (error: any) {
             trace("本地缓存重试失败", { message: error?.message });
             return requestId !== this.playRequestId;
         } finally {
+            if (this.fallbackRequestId === requestId) {
+                getDefaultStore().set(playbackHintAtom, null);
+            }
             if (this.fallbackDownload === download) this.fallbackDownload = undefined;
         }
     }
@@ -1069,6 +1086,7 @@ export const usePlayList = () => useAtomValue(playListAtom);
 export const useCurrentMusic = () => useAtomValue(currentMusicAtom);
 export const useRepeatMode = () => useAtomValue(repeatModeAtom);
 export const useMusicQuality = () => useAtomValue(qualityAtom);
+export const usePlaybackHint = () => useAtomValue(playbackHintAtom);
 export function useMusicState() {
     const playbackState = usePlaybackState();
 

@@ -1,6 +1,7 @@
 // 国际化语言数据接口定义
 export interface ILanguageData {
     "player.playbackFailed": string; // 播放失败
+    "player.tryingAlternateSource": string; // 尝试换源
     // 通用词汇
     "common.setting": string; // 设置
     "common.software": string; // 软件
