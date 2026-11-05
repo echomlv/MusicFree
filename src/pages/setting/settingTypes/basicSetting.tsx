@@ -621,6 +621,9 @@ export default function BasicSetting() {
             />
             <SectionList
                 sections={basicOptions}
+                initialNumToRender={100}
+                maxToRenderPerBatch={100}
+                windowSize={20}
                 renderSectionHeader={({ section }) => (
                     <View style={styles.sectionHeader}>
                         <ThemeText
