@@ -28,7 +28,7 @@ function DownloadingListItem(props: DownloadingListItemProps) {
         } else if (reason === DownloadFailReason.FailToFetchSource) {
             description = t("downloading.downloadFailReason.failToFetchSource");
         } else {
-            description = t("downloading.downloadFailReason.unknown");
+            description = taskInfo?.errorMessage ?? t("downloading.downloadFailReason.unknown");
         }
     } else if (status === DownloadStatus.Completed) {
         description = t("downloading.downloadStatus.completed");

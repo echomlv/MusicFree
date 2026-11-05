@@ -1,0 +1,8 @@
+version: 1
+name: MusicFree media delivery
+description: Local audio delivery scenarios for iOS playback and download recovery.
+port: 4510
+interceptRequests: true
+scenarios:
+  - name: default
+    path: default.js

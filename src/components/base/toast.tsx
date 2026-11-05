@@ -32,6 +32,8 @@ export interface IToastConfig {
     onActionClick?: () => void;
     /** 展示时间 */
     duration?: number;
+    /** Replace older messages about the same ongoing operation. */
+    key?: string;
 }
 
 type IToastConfigInner = IToastConfig & {
@@ -62,10 +64,14 @@ export function ToastBaseComponent() {
     const toastAnim = useSharedValue(0);
 
     const setNextToast = useCallback(() => {
-        activeToastStore.setValue(toastQueue.shift() || null);
-    }, []);
+        if (activeToastStore.getValue()?.id === activeToast?.id) {
+            activeToastStore.setValue(toastQueue.shift() || null);
+        }
+    }, [activeToast?.id]);
 
     useEffect(() => {
+        cancelAnimation(toastAnim);
+        toastAnim.value = 0;
         if (activeToast) {
             toastAnim.value = withTiming(1, timingConfig.animationSlow, () => {
                 toastAnim.value = withDelay(
@@ -78,7 +84,8 @@ export function ToastBaseComponent() {
                 );
             });
         }
-    }, [activeToast]);
+        return () => cancelAnimation(toastAnim);
+    }, [activeToast, setNextToast, toastAnim]);
 
     function removeCurrentToast() {
         if (toastAnim.value === 1) {
@@ -209,11 +216,25 @@ export function showToast(config: IToastConfig) {
         id,
     };
     const activeToast = activeToastStore.getValue();
-    if (!activeToast) {
+    if (config.key) {
+        for (let i = toastQueue.length - 1; i >= 0; i--) {
+            if (toastQueue[i].key === config.key) toastQueue.splice(i, 1);
+        }
+    }
+    if (!activeToast || (config.key && activeToast.key === config.key)) {
         activeToastStore.setValue(_config);
     } else {
         toastQueue.push(_config);
     }
 
     return id;
+}
+
+export function dismissToast(key: string) {
+    for (let i = toastQueue.length - 1; i >= 0; i--) {
+        if (toastQueue[i].key === key) toastQueue.splice(i, 1);
+    }
+    if (activeToastStore.getValue()?.key === key) {
+        activeToastStore.setValue(toastQueue.shift() || null);
+    }
 }

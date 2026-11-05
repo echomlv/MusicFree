@@ -39,7 +39,8 @@ import { IPluginManager } from "@/types/core/pluginManager";
 import { ImgAsset } from "@/constants/assetsConst";
 import { resolveImportedAssetOrPath } from "@/utils/fileUtils";
 import { consumeSleepTimer } from "@/utils/sleepTimerState";
-import { showToast } from "@/components/base/toast";
+import { dismissToast, showToast } from "@/components/base/toast";
+import { downloadPlaybackSource } from "@/utils/iosPlaybackSource";
 import i18n from "../i18n";
 
 
@@ -71,6 +72,10 @@ class TrackPlayer extends EventEmitter<{
     private playRequestId = 0;
     private failedPlayRequestId = -1;
     private endedPlayRequestId = -1;
+    private seekRequestId = 0;
+    private fallbackRequestId = -1;
+    private fallbackDownload?: ReturnType<typeof downloadPlaybackSource>;
+    private playbackRequested = false;
     // 播放队列索引map
     private playListIndexMap = createMediaIndexMap([] as IMusic.IMusicItem[]);
 
@@ -190,52 +195,38 @@ class TrackPlayer extends EventEmitter<{
             // Resolve one actual source at a time and advance when AVPlayer reaches its end.
             ReactNativeTrackPlayer.addEventListener(
                 Event.PlaybackQueueEnded,
-                async event => {
-                    if (this.advancingQueue) return;
-                    this.advancingQueue = true;
-                    const requestId = this.playRequestId;
-                    try {
-                        const endedTrack = await ReactNativeTrackPlayer.getActiveTrack();
-                        const [{ state }, endedProgress] = await Promise.all([
-                            ReactNativeTrackPlayer.getPlaybackState(),
-                            ReactNativeTrackPlayer.getProgress(),
-                        ]);
-                        if (requestId !== this.playRequestId || this.endedPlayRequestId === requestId ||
-                            !endedTrack || !this.isCurrentMusic(endedTrack as IMusic.IMusicItem)) return;
-
-                        // AVPlayer can transition from ended to paused/ready before JS
-                        // handles this event. Validate the position before advancing.
-                        const nearEnd = endedProgress.duration > 0 &&
-                            endedProgress.position >= endedProgress.duration - 1 &&
-                            (event?.position ?? endedProgress.position) >= endedProgress.duration - 1;
-                        if (state !== State.Ended &&
-                            !((state === State.Paused || state === State.Ready) && nearEnd)) return;
-                        this.endedPlayRequestId = requestId;
-                        if (consumeSleepTimer(true)) {
-                            await ReactNativeTrackPlayer.reset();
-                            return;
-                        }
-                        this.emit(TrackPlayerEvents.PlayEnd);
-                        if (this.repeatMode === MusicRepeatMode.SINGLE) {
-                            await this.play(null, true);
-                        } else {
-                            await this.skipToNext();
-                        }
-                    } finally {
-                        this.advancingQueue = false;
-                    }
-                },
+                event => this.handlePlaybackEnd(event?.position),
             );
+
+            ReactNativeTrackPlayer.addEventListener(Event.PlaybackProgressUpdated, event => {
+                // AVPlayer sometimes keeps reporting playing beyond a FLAC's EOF
+                // after a seek, without sending PlaybackQueueEnded.
+                if (Number.isFinite(event.duration) && event.duration > 0 &&
+                    event.position >= event.duration + 0.5) {
+                    return this.handlePlaybackEnd(event.position, true).catch(error => errorLog("播放结束处理失败", error?.message));
+                }
+            });
+
+            ReactNativeTrackPlayer.addEventListener(Event.PlaybackState, async event => {
+                if (event.state === State.Playing) {
+                    const requestId = this.playRequestId;
+                    const activeTrack = await ReactNativeTrackPlayer.getActiveTrack();
+                    if (requestId === this.playRequestId && activeTrack && this.isCurrentMusic(activeTrack as IMusic.IMusicItem)) {
+                        dismissToast("playback-error");
+                    }
+                }
+            });
 
             ReactNativeTrackPlayer.addEventListener(
                 Event.PlaybackError,
                 async e => {
+                    const requestId = this.playRequestId;
                     const [currentTrack, activeIndex, playbackState] = await Promise.all([
                         ReactNativeTrackPlayer.getActiveTrack(),
                         ReactNativeTrackPlayer.getActiveTrackIndex(),
                         ReactNativeTrackPlayer.getPlaybackState(),
                     ]);
-                    if (!currentTrack || activeIndex !== 0 ||
+                    if (!this.playbackRequested || requestId !== this.playRequestId || !currentTrack || activeIndex !== 0 ||
                         !this.isCurrentMusic(currentTrack as IMusic.IMusicItem) ||
                         playbackState.state !== State.Error) {
                         return;
@@ -257,6 +248,8 @@ class TrackPlayer extends EventEmitter<{
                     const code = payload.code || playbackState.error?.code;
                     errorLog("播放出错", message);
                     trace("播放出错", { message, code });
+                    if (await this.retryDownloadedSource(currentTrack, requestId)) return;
+                    if (requestId !== this.playRequestId) return;
                     await this.handlePlayFail(currentTrack as IMusic.IMusicItem);
                 },
             );
@@ -419,6 +412,10 @@ class TrackPlayer extends EventEmitter<{
         forcePlay?: boolean,
     ): Promise<void> {
         this.playRequestId += 1;
+        this.playbackRequested = true;
+        this.fallbackDownload?.cancel();
+        this.fallbackDownload = undefined;
+        dismissToast("playback-error");
         try {
             // 如果不传参，默认是播放当前音乐
             if (!musicItem) {
@@ -654,6 +651,10 @@ class TrackPlayer extends EventEmitter<{
     }
 
     async pause(): Promise<void> {
+        this.playbackRequested = false;
+        this.playRequestId += 1;
+        this.fallbackDownload?.cancel();
+        this.fallbackDownload = undefined;
         await ReactNativeTrackPlayer.pause();
     }
 
@@ -666,7 +667,7 @@ class TrackPlayer extends EventEmitter<{
         this.setPlayList([]);
         this.setCurrentMusic(null);
 
-        await ReactNativeTrackPlayer.reset();
+        await this.reset();
         PersistStatus.set("music.musicItem", undefined);
         PersistStatus.set("music.progress", 0);
     }
@@ -760,6 +761,7 @@ class TrackPlayer extends EventEmitter<{
     }
 
     async seekTo(progress: number) {
+        this.seekRequestId += 1;
         PersistStatus.set("music.progress", progress);
         return ReactNativeTrackPlayer.seekTo(progress);
     }
@@ -767,7 +769,14 @@ class TrackPlayer extends EventEmitter<{
     getProgress = ReactNativeTrackPlayer.getProgress;
     getRate = ReactNativeTrackPlayer.getRate;
     setRate = ReactNativeTrackPlayer.setRate;
-    reset = ReactNativeTrackPlayer.reset;
+    reset = async () => {
+        this.playbackRequested = false;
+        this.playRequestId += 1;
+        this.fallbackDownload?.cancel();
+        this.fallbackDownload = undefined;
+        dismissToast("playback-error");
+        return ReactNativeTrackPlayer.reset();
+    };
 
 
     /**************** 辅助函数 -- 设置内部状态 ****************/
@@ -830,7 +839,8 @@ class TrackPlayer extends EventEmitter<{
             return;
         }
         await ReactNativeTrackPlayer.setQueue([clonedTrack]);
-        PersistStatus.set("music.musicItem", track as IMusic.IMusicItem);
+        const originalUrl = (track as Track & { iosOriginalUrl?: string }).iosOriginalUrl;
+        PersistStatus.set("music.musicItem", { ...track, url: originalUrl ?? track.url } as IMusic.IMusicItem);
         PersistStatus.set("music.progress", 0);
         if (autoPlay) {
             await ReactNativeTrackPlayer.play();
@@ -903,6 +913,62 @@ class TrackPlayer extends EventEmitter<{
         });
     }
 
+    private async handlePlaybackEnd(position?: number, overrun = false) {
+        if (this.advancingQueue) return;
+        this.advancingQueue = true;
+        const requestId = this.playRequestId;
+        const seekId = this.seekRequestId;
+        try {
+            const endedTrack = await ReactNativeTrackPlayer.getActiveTrack();
+            const [{ state }, progress] = await Promise.all([
+                ReactNativeTrackPlayer.getPlaybackState(), ReactNativeTrackPlayer.getProgress(),
+            ]);
+            if (requestId !== this.playRequestId || seekId !== this.seekRequestId || this.endedPlayRequestId === requestId ||
+                !endedTrack || !this.isCurrentMusic(endedTrack as IMusic.IMusicItem)) return;
+            const finiteDuration = Number.isFinite(progress.duration) && progress.duration > 0;
+            const nearEnd = finiteDuration && progress.position >= progress.duration - 1 &&
+                (position ?? progress.position) >= progress.duration - 1;
+            const pastEnd = finiteDuration && progress.position >= progress.duration + 0.5 &&
+                (position ?? progress.position) >= progress.duration + 0.5;
+            const completed = overrun ? state === State.Playing && pastEnd :
+                state === State.Ended || ((state === State.Paused || state === State.Ready) && nearEnd);
+            if (!completed) return;
+            this.endedPlayRequestId = requestId;
+            if (consumeSleepTimer(true)) {
+                await this.reset();
+                return;
+            }
+            this.emit(TrackPlayerEvents.PlayEnd);
+            if (this.repeatMode === MusicRepeatMode.SINGLE) await this.play(null, true);
+            else await this.skipToNext();
+        } finally {
+            this.advancingQueue = false;
+        }
+    }
+
+    private async retryDownloadedSource(track: Track, requestId: number): Promise<boolean> {
+        if (this.fallbackRequestId === requestId) return !!this.fallbackDownload;
+        if (typeof track.url !== "string" || !/^https?:\/\//i.test(track.url) ||
+            track.isLiveStream || track.type === "hls" || getUrlExt(track.url) === ".m3u8") return false;
+        this.fallbackRequestId = requestId;
+        const download = downloadPlaybackSource(track.url, track.headers as Record<string, string> | undefined);
+        this.fallbackDownload = download;
+        try {
+            const progress = await ReactNativeTrackPlayer.getProgress();
+            const url = await download.promise;
+            if (requestId !== this.playRequestId || !this.isCurrentMusic(track as IMusic.IMusicItem)) return true;
+            if (!url) return false;
+            await this.setTrackSource({ ...track, url, iosOriginalUrl: track.url } as Track);
+            if (progress.position > 0) await this.seekTo(progress.position);
+            return true;
+        } catch (error: any) {
+            trace("本地缓存重试失败", { message: error?.message });
+            return requestId !== this.playRequestId;
+        } finally {
+            if (this.fallbackDownload === download) this.fallbackDownload = undefined;
+        }
+    }
+
     private async handlePlayFail(musicItem = this.currentMusic) {
         if (!musicItem || !this.isCurrentMusic(musicItem) || this.failedPlayRequestId === this.playRequestId) {
             return;
@@ -910,6 +976,7 @@ class TrackPlayer extends EventEmitter<{
         const failedRequestId = this.playRequestId;
         this.failedPlayRequestId = failedRequestId;
         showToast({
+            key: "playback-error",
             type: "warn",
             message: i18n.t("player.playbackFailed", { title: musicItem.title }),
             duration: 4000,

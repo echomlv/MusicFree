@@ -31,7 +31,7 @@ export default function MusicDetail() {
         <>
             <Background />
             <SafeAreaView style={globalStyle.fwflex1}>
-                <StatusBar backgroundColor={"transparent"} />
+                <StatusBar backgroundColor={"transparent"} barStyle="light-content" />
                 <View style={style.bodyWrapper}>
                     <View style={globalStyle.flex1}>
                         <NavBar />

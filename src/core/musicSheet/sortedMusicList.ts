@@ -109,7 +109,13 @@ export default class SortedMusicList {
     }
 
     add(musicItems: IMusic.IMusicItem[]) {
-        musicItems = musicItems.filter(it => !this.has(it));
+        const seen = new Set<string>();
+        musicItems = musicItems.filter(it => {
+            const key = JSON.stringify([String(it.platform), String(it.id)]);
+            if (this.has(it) || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
         if (!musicItems.length) {
             return 0;
         }

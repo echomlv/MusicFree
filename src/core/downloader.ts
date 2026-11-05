@@ -1,4 +1,4 @@
-import { internalSerializeKey, supportLocalMediaType } from "@/constants/commonConst";
+import { internalSerializeKey } from "@/constants/commonConst";
 import pathConst from "@/constants/pathConst";
 import { IAppConfig } from "@/types/core/config";
 import { IInjectable } from "@/types/infra";
@@ -13,9 +13,10 @@ import { atom, getDefaultStore, useAtomValue } from "jotai";
 import { nanoid } from "nanoid";
 import path from "path-browserify";
 import { useEffect, useState } from "react";
-import { copyFile, downloadFile, exists, unlink } from "react-native-fs";
+import { copyFile, unlink } from "react-native-fs";
 import LocalMusicSheet from "./localMusicSheet";
 import { IPluginManager } from "@/types/core/pluginManager";
+import { downloadAudioFile } from "@/utils/audioFile";
 
 
 export enum DownloadStatus {
@@ -75,6 +76,7 @@ interface IDownloadTaskInfo {
     musicItem: IMusic.IMusicItem;
     // 如果下载失败，下载失败的原因
     errorReason?: DownloadFailReason;
+    errorMessage?: string;
 }
 
 
@@ -143,21 +145,10 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
         this.updateDownloadTask(musicItem, {
             status: DownloadStatus.Error,
             errorReason: reason,
+            errorMessage: error?.message,
         });
         this.emit(DownloaderEvent.DownloadTaskError, reason, musicItem, error);
     }
-
-    /** 匹配文件后缀 */
-    private getExtensionName(url: string) {
-        const regResult = url.match(
-            /^https?\:\/\/.+\.([^\?\.]+?$)|(?:([^\.]+?)\?.+$)/,
-        );
-        if (regResult) {
-            return regResult[1] ?? regResult[2] ?? "mp3";
-        } else {
-            return "mp3";
-        }
-    };
 
     /** 获取下载路径 */
     private getDownloadPath(fileName: string) {
@@ -263,97 +254,66 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
             } else {
                 this.markTaskAsError(musicItem, DownloadFailReason.Unknown, e);
             }
+            this.downloadNextPendingTask().catch(error => errorLog("下载队列出错", error?.message));
             return;
         }
 
         // 预处理完成，可以开始处理下一个任务
-        this.downloadNextPendingTask();
+        this.downloadNextPendingTask().catch(error => errorLog("下载队列出错", error?.message));
 
-        // 下载逻辑
-        // 识别文件后缀
-        let extension = this.getExtensionName(url);
-        if (supportLocalMediaType.every(item => item !== ("." + extension))) {
-            extension = "mp3";
-        }
-
-        // 缓存下载地址
-        const cacheDownloadPath = addFileScheme(
-            this.getCacheDownloadPath(`${nanoid()}.${extension}`),
-        );
-
-        // 真实下载地址
-        const targetDownloadPath = addFileScheme(
-            this.getDownloadPath(`${nextTask.filename}.${extension}`),
-        );
-
-        // 检测下载位置是否存在
+        const cacheDownloadPath = this.getCacheDownloadPath(`${nanoid()}.tmp`);
+        let writingFile = false;
         try {
-            const folder = path.dirname(targetDownloadPath);
-            const folderExists = await exists(folder);
-            if (!folderExists) {
-                await mkdirR(folder);
-            }
-        } catch (e: any) {
-            this.emit(DownloaderEvent.DownloadTaskError, DownloadFailReason.NoWritePermission, musicItem, e);
-            return;
-        }
-
-        // 下载
-        const { promise } = downloadFile({
-            fromUrl: url ?? "",
-            toFile: cacheDownloadPath,
-            headers: headers,
-            background: true,
-            begin: (res) => {
-                this.updateDownloadTask(musicItem, {
+            writingFile = true;
+            await mkdirR(path.dirname(cacheDownloadPath));
+            await mkdirR(path.dirname(this.getDownloadPath(nextTask.filename)));
+            writingFile = false;
+            const { promise } = downloadAudioFile({
+                fromUrl: url ?? "",
+                toFile: cacheDownloadPath,
+                headers,
+                background: true,
+                begin: res => this.updateDownloadTask(musicItem, {
+                    status: DownloadStatus.Downloading, downloadedSize: 0,
+                    fileSize: res.contentLength, jobId: res.jobId,
+                }),
+                progress: res => this.updateDownloadTask(musicItem, {
                     status: DownloadStatus.Downloading,
-                    downloadedSize: 0,
-                    fileSize: res.contentLength,
-                    jobId: res.jobId,
-                });
-            },
-            progress: (res) => {
-                this.updateDownloadTask(musicItem, {
-                    status: DownloadStatus.Downloading,
-                    downloadedSize: res.bytesWritten,
-                    fileSize: res.contentLength,
-                    jobId: res.jobId,
-                });
-            },
-        });
-
-        try {
-            await promise;
-            // 下载完成，移动文件
+                    downloadedSize: res.bytesWritten, fileSize: res.contentLength, jobId: res.jobId,
+                }),
+            });
+            const response = await promise;
+            const targetDownloadPath = this.getDownloadPath(`${nextTask.filename}.${response.extension}`);
+            writingFile = true;
             await copyFile(cacheDownloadPath, targetDownloadPath);
 
-            LocalMusicSheet.addMusic({
+            await LocalMusicSheet.addMusic({
                 ...musicItem,
                 [internalSerializeKey]: {
-                    localPath: targetDownloadPath,
+                    localPath: addFileScheme(targetDownloadPath),
                 },
             });
 
             patchMediaExtra(musicItem, {
                 downloaded: true,
-                localPath: targetDownloadPath,
+                localPath: addFileScheme(targetDownloadPath),
             });
 
             this.markTaskAsCompleted(musicItem);
         } catch (e: any) {
-            this.markTaskAsError(musicItem, DownloadFailReason.Unknown, e);
+            errorLog("下载失败", e?.message);
+            this.markTaskAsError(musicItem, writingFile ? DownloadFailReason.NoWritePermission : DownloadFailReason.Unknown, e);
+        } finally {
+            await unlink(cacheDownloadPath).catch(() => {});
+            this.downloadNextPendingTask().catch(error => errorLog("下载队列出错", error?.message));
         }
-
-        // 清理工作
-        await unlink(cacheDownloadPath);
-        this.downloadNextPendingTask();
 
         // 如果任务状态是完成，则从队列中移除
         const key = getMediaUniqueKey(musicItem);
         if (downloadTasks.get(key)?.status === DownloadStatus.Completed) {
             downloadTasks.delete(key);
-            const downloadQueue = getDefaultStore().get(downloadQueueAtom);
-            const newDownloadQueue = downloadQueue.filter(item => !isSameMediaItem(item, musicItem));
+            const currentQueue = getDefaultStore().get(downloadQueueAtom);
+            const newDownloadQueue = currentQueue.filter(item => !isSameMediaItem(item, musicItem));
             getDefaultStore().set(downloadQueueAtom, newDownloadQueue);
         }
     }

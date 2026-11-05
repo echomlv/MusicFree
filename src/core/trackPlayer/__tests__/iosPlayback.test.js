@@ -1,7 +1,8 @@
 jest.mock('react-native-reanimated', () => ({Easing: {out: value => value, exp: () => 0}}));
 jest.mock('@/components/dialogs/useDialog', () => ({getCurrentDialog: jest.fn(), showDialog: jest.fn()}));
 jest.mock('@/utils/log', () => ({errorLog: jest.fn(), trace: jest.fn()}));
-jest.mock('@/components/base/toast', () => ({showToast: jest.fn()}));
+jest.mock('@/components/base/toast', () => ({showToast: jest.fn(), dismissToast: jest.fn()}));
+jest.mock('@/utils/iosPlaybackSource', () => ({downloadPlaybackSource: jest.fn()}));
 jest.mock('@/core/i18n', () => ({t: (key, args) => `${key}: ${args.title}`}));
 jest.mock('@/utils/persistStatus', () => ({get: jest.fn(), set: jest.fn()}));
 jest.mock('@/utils/network', () => ({isCellular: false}));
@@ -14,14 +15,14 @@ jest.mock('@/utils/mediaUtils', () => ({
     isSameMediaItem: (left, right) => left?.id === right?.id && left?.platform === right?.platform,
 }));
 jest.mock('react-native-track-player', () => ({
-    Event: {PlaybackQueueEnded: 'queue-ended', PlaybackError: 'error'},
+    Event: {PlaybackQueueEnded: 'queue-ended', PlaybackError: 'error', PlaybackProgressUpdated: 'progress', PlaybackState: 'state'},
     State: {Ended: 'ended', Playing: 'playing', Paused: 'paused', Ready: 'ready', Error: 'error', Stopped: 'stopped', None: 'none'},
     addEventListener: jest.fn(),
     getActiveTrack: jest.fn(),
     getPlaybackState: jest.fn(),
     getProgress: jest.fn(),
     getActiveTrackIndex: jest.fn(), getTrack: jest.fn(), updateMetadataForTrack: jest.fn(),
-    setQueue: jest.fn(), reset: jest.fn(), play: jest.fn(), setRate: jest.fn(),
+    setQueue: jest.fn(), reset: jest.fn(), play: jest.fn(), pause: jest.fn(), seekTo: jest.fn(), setRate: jest.fn(),
 }));
 
 const nativePlayer = require('react-native-track-player');
@@ -30,6 +31,7 @@ const {MusicRepeatMode} = require('@/constants/repeatModeConst');
 const {getDefaultStore} = require('jotai');
 const {deadlineAtom, closeAfterPlayEndAtom} = require('@/utils/sleepTimerState');
 const {showToast} = require('@/components/base/toast');
+const {downloadPlaybackSource} = require('@/utils/iosPlaybackSource');
 const {trace} = require('@/utils/log');
 const persist = require('@/utils/persistStatus');
 const song = {id: 'one', platform: 'test', title: 'One', url: 'https://example.com/one.mp3'};
@@ -38,6 +40,7 @@ const getMediaSource = jest.fn();
 const addMusic = jest.fn();
 let onQueueEnded;
 let onPlaybackError;
+let onProgress;
 
 beforeAll(async () => {
     player.injectDependencies({getConfig}, {addMusic}, {
@@ -47,6 +50,7 @@ beforeAll(async () => {
     await player.setupTrackPlayer();
     onQueueEnded = nativePlayer.addEventListener.mock.calls.find(([event]) => event === 'queue-ended')[1];
     onPlaybackError = nativePlayer.addEventListener.mock.calls.find(([event]) => event === 'error')[1];
+    onProgress = nativePlayer.addEventListener.mock.calls.find(([event]) => event === 'progress')[1];
 });
 
 beforeEach(() => {
@@ -55,6 +59,7 @@ beforeEach(() => {
     getConfig.mockReset();
     persist.get.mockReset();
     getMediaSource.mockReset().mockResolvedValue({url: 'https://example.com/fresh.mp3'});
+    downloadPlaybackSource.mockImplementation(() => ({promise: Promise.reject(new Error('Unavailable file')), cancel: jest.fn()}));
     nativePlayer.getActiveTrack.mockResolvedValue(song);
     nativePlayer.getActiveTrackIndex.mockResolvedValue(0);
     nativePlayer.getTrack.mockResolvedValue(song);
@@ -63,6 +68,9 @@ beforeEach(() => {
     player.setCurrentMusic(song);
     player.failedPlayRequestId = -1;
     player.endedPlayRequestId = -1;
+    player.fallbackRequestId = -1;
+    player.fallbackDownload = undefined;
+    player.playbackRequested = true;
     player.setRepeatMode(MusicRepeatMode.QUEUE);
     getDefaultStore().set(deadlineAtom, null);
     getDefaultStore().set(closeAfterPlayEndAtom, false);
@@ -134,6 +142,83 @@ it('ignores a stale end event after playback has already changed', async () => {
     nativePlayer.getPlaybackState.mockResolvedValue({state: 'playing'});
     await onQueueEnded();
     expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('advances when FLAC progress exceeds EOF without an end event', async () => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'playing'});
+    nativePlayer.getProgress.mockResolvedValue({position: 102, duration: 100});
+    await onProgress({position: 102, duration: 100});
+    await onQueueEnded({position: 102});
+    expect(player.skipToNext).toHaveBeenCalledTimes(1);
+});
+
+it.each([
+    ['playing', 99, 100], ['paused', 103, 100], ['playing', 103, 0], ['playing', 103, Infinity],
+])('does not infer an end from %s at %s/%s', async (state, position, duration) => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state});
+    nativePlayer.getProgress.mockResolvedValue({position, duration});
+    await onProgress({position, duration});
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('ignores a stale overrun event after seeking away from EOF', async () => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'playing'});
+    nativePlayer.getProgress.mockResolvedValue({position: 20, duration: 100});
+    await onProgress({position: 102, duration: 100});
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('honors single-repeat and finish-current timers for FLAC overruns', async () => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'playing'});
+    nativePlayer.getProgress.mockResolvedValue({position: 102, duration: 100});
+    player.setRepeatMode(MusicRepeatMode.SINGLE);
+    await onProgress({position: 102, duration: 100});
+    expect(player.play).toHaveBeenCalledWith(null, true);
+    player.endedPlayRequestId = -1;
+    getDefaultStore().set(deadlineAtom, Date.now() - 1000);
+    getDefaultStore().set(closeAfterPlayEndAtom, true);
+    await onProgress({position: 102, duration: 100});
+    expect(nativePlayer.reset).toHaveBeenCalledTimes(1);
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('retries a failed remote source from a downloaded file before skipping', async () => {
+    downloadPlaybackSource.mockReturnValue({promise: Promise.resolve('file:///cache/song.m4a'), cancel: jest.fn()});
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'error'});
+    await onPlaybackError({error: 'Resource failed'});
+    expect(nativePlayer.setQueue).toHaveBeenCalledWith([expect.objectContaining({url: 'file:///cache/song.m4a'})]);
+    expect(persist.set).toHaveBeenCalledWith('music.musicItem', expect.objectContaining({url: song.url}));
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('does not download a live or local source after failure', async () => {
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'error'});
+    nativePlayer.getActiveTrack.mockResolvedValue({...song, isLiveStream: true});
+    await onPlaybackError({error: 'Stream failed'});
+    expect(downloadPlaybackSource).not.toHaveBeenCalled();
+});
+
+it('cancels a pending download when the user pauses, and never restarts playback', async () => {
+    let resolve;
+    const cancel = jest.fn();
+    downloadPlaybackSource.mockReturnValue({promise: new Promise(r => {resolve = r;}), cancel});
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'error'});
+    const pending = onPlaybackError({error: 'Resource failed'});
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    await player.pause();
+    resolve('file:///cache/late.m4a');
+    await pending;
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(nativePlayer.setQueue).not.toHaveBeenCalled();
+    expect(player.skipToNext).not.toHaveBeenCalled();
+});
+
+it('ignores a late native error after the user has paused', async () => {
+    await player.pause();
+    nativePlayer.getPlaybackState.mockResolvedValue({state: 'error'});
+    await onPlaybackError({error: 'Late failure'});
+    expect(downloadPlaybackSource).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
 });
 
 it('sends only the playable source to the native queue', async () => {
