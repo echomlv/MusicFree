@@ -141,6 +141,25 @@ export async function clearCache(type: "music" | "lyric" | "image") {
     }
 }
 
+/** 清空目录中的文件，保留目录本身，便于后续继续下载。 */
+export async function clearDirectory(dirPath: string) {
+    try {
+        if (!(await exists(dirPath))) return;
+        const entries = await readDir(dirPath);
+        await Promise.all(entries.map(async entry => {
+            if (entry.isDirectory()) {
+                await clearDirectory(entry.path);
+                await unlink(entry.path);
+            } else {
+                await unlink(entry.path);
+            }
+        }));
+    } catch (error) {
+        errorLog("清空目录失败", { path: dirPath, error });
+        throw error;
+    }
+}
+
 export function addFileScheme(fileName: string) {
     if (fileName.startsWith("/")) {
         return `file://${fileName}`;

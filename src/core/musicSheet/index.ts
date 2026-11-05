@@ -214,7 +214,7 @@ class MusicSheetClazz implements IInjectable {
         ) {
             storage.setSheetMeta(newId, "sort", defaultSortType);
         } else {
-            defaultSortType = SortType.None;
+            defaultSortType = SortType.Newest;
         }
         musicListMap.set(newId, new SortedMusicList([], defaultSortType, true));
         return newId;

@@ -355,6 +355,8 @@ export interface ILanguageData {
     "basicSettings.cache": string; // 缓存
     "basicSettings.cache.musicCacheLimit": string; // 音乐缓存上限
     "basicSettings.cache.clearMusicCache": string; // 清除音乐缓存
+    "basicSettings.cache.clearDownloadedMusic": string; // 清除已下载歌曲
+    "basicSettings.cache.clearDownloadedMusicAction": string; // 清空已下载歌曲
     "basicSettings.cache.clearLyricCache": string; // 清除歌词缓存
     "basicSettings.cache.clearImageCache": string; // 清除图片缓存
     
@@ -370,6 +372,8 @@ export interface ILanguageData {
     "dialog.setCachePlaceholder": string; // 输入缓存占用上限提示
     "dialog.clearMusicCacheTitle": string; // 清除音乐缓存
     "dialog.clearMusicCacheContent": string; // 清除音乐缓存确认内容
+    "dialog.clearDownloadedMusicTitle": string; // 清除已下载歌曲
+    "dialog.clearDownloadedMusicContent": string; // 清除已下载歌曲确认内容
     "dialog.clearLyricCacheTitle": string; // 清除歌词缓存
     "dialog.clearLyricCacheContent": string; // 清除歌词缓存确认内容
     "dialog.clearImageCacheTitle": string; // 清除图片缓存
@@ -386,6 +390,7 @@ export interface ILanguageData {
     // 提示消息相关 - 缓存和日志
     "toast.cacheSetSuccess": string; // 设置成功
     "toast.musicCacheCleared": string; // 已清除音乐缓存
+    "toast.downloadedMusicCleared": string; // 已清除已下载歌曲
     "toast.lyricCacheCleared": string; // 已清除歌词缓存
     "toast.imageCacheCleared": string; // 已清除图片缓存
     "toast.logCleared": string; // 日志已清空

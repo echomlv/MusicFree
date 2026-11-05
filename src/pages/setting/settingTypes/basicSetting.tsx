@@ -13,7 +13,7 @@ import { ROUTE_PATH, useNavigate } from "@/core/router";
 import useColors from "@/hooks/useColors";
 import LyricUtil, { isStatusBarLyricSupported, NativeTextAlignment } from "@/native/lyricUtil";
 import { AppConfigPropertyKey } from "@/types/core/config";
-import { clearCache, getCacheSize, sizeFormatter } from "@/utils/fileUtils";
+import { clearCache, clearDirectory, getCacheSize, sizeFormatter } from "@/utils/fileUtils";
 import { clearLog, getErrorLogContent } from "@/utils/log";
 import { qualityKeys } from "@/utils/qualities";
 import rpx from "@/utils/rpx";
@@ -142,6 +142,7 @@ export default function BasicSetting() {
     const [cacheSize, refreshCacheSize] = useCacheSize();
 
     const sectionListRef = useRef<SectionList | null>(null);
+    const pendingSectionIndex = useRef<number | null>(null);
     // const titleListRef = useRef<FlatList | null>(null);
 
     useEffect(() => {
@@ -233,7 +234,7 @@ export default function BasicSetting() {
                         SortType.Newest,
                         SortType.Oldest,
                     ],
-                    musicOrderInLocalSheet ?? "end",
+                    musicOrderInLocalSheet ?? SortType.Newest,
                     {
                         [SortType.Title]: t("basicSettings.musicOrderInLocalSheet.title"),
                         [SortType.Artist]: t("basicSettings.musicOrderInLocalSheet.artist"),
@@ -480,6 +481,24 @@ export default function BasicSetting() {
                     },
                 ] : []),
                 {
+                    title: t("basicSettings.cache.clearDownloadedMusic"),
+                    right: (
+                        <ThemeText style={styles.centerText}>
+                            {t("basicSettings.cache.clearDownloadedMusicAction")}
+                        </ThemeText>
+                    ),
+                    onPress() {
+                        showDialog("SimpleDialog", {
+                            title: t("dialog.clearDownloadedMusicTitle"),
+                            content: t("dialog.clearDownloadedMusicContent"),
+                            async onOk() {
+                                await clearDirectory(downloadPath ?? pathConst.downloadMusicPath);
+                                Toast.success(t("toast.downloadedMusicCleared"));
+                            },
+                        });
+                    },
+                },
+                {
                     title: t("basicSettings.cache.clearLyricCache"),
                     right: (
                         <ThemeText style={styles.centerText}>
@@ -586,9 +605,12 @@ export default function BasicSetting() {
                 renderItem={({ item, index }) => (
                     <TouchableOpacity
                         onPress={() => {
+                            pendingSectionIndex.current = index;
                             sectionListRef.current?.scrollToLocation({
                                 sectionIndex: index,
                                 itemIndex: 0,
+                                viewPosition: 0,
+                                animated: true,
                             });
                         }}
                         activeOpacity={0.7}
@@ -610,6 +632,17 @@ export default function BasicSetting() {
                     </View>
                 )}
                 ref={sectionListRef}
+                onScrollToIndexFailed={({ index }) => {
+                    setTimeout(() => {
+                        const sectionIndex = pendingSectionIndex.current ?? index;
+                        sectionListRef.current?.scrollToLocation({
+                            sectionIndex,
+                            itemIndex: 0,
+                            viewPosition: 0,
+                            animated: true,
+                        });
+                    }, 100);
+                }}
                 renderSectionFooter={({ section }) => {
                     return section.footer ?? null;
                 }}
