@@ -19,6 +19,8 @@ import useRerender from "@/hooks/useRerender";
 
 interface IPluginItemProps {
     plugin: Plugin;
+    onMoveGroup?: () => void;
+    groupEnabled?: boolean;
 }
 
 interface IOption {
@@ -31,13 +33,14 @@ interface IOption {
 function _PluginItem(props: IPluginItemProps) {
     const { plugin } = props;
     const colors = useColors();
-    const enabled = usePluginEnabled(plugin);
+    const enabled = usePluginEnabled(plugin, true);
     const { t } = useI18N();
     const rerender = useRerender();
 
     const alternativePluginName = pluginManager.getAlternativePluginName(plugin);
 
     const options: IOption[] = [
+        { title: "移动到分组", icon: "folder-outline", onPress: props.onMoveGroup, show: !!props.onMoveGroup },
         {
             title: t("pluginSetting.pluginItem.options.updatePlugin"),
             icon: "arrow-path",
@@ -225,12 +228,14 @@ function _PluginItem(props: IPluginItemProps) {
 
                 </View>
                 <ThemeSwitch
+                    accessibilityLabel={plugin.name + "启用开关"}
                     value={enabled}
                     onValueChange={val => {
                         pluginManager.setPluginEnabled(plugin, val);
                     }}
                 />
             </View>
+            {props.groupEnabled === false ? <ThemeText style={{ marginHorizontal: rpx(16), marginTop: rpx(8) }} fontSize="subTitle" fontColor="textSecondary">分组已关闭，此资源暂不参与搜索和列表</ThemeText> : null}
             <View style={styles.description}>
                 <ThemeText fontSize="subTitle" fontColor="textSecondary">
                     {t("pluginSetting.pluginItem.versionHint", {
@@ -311,9 +316,7 @@ function _PluginItem(props: IPluginItemProps) {
     );
 }
 
-const PluginItem = memo(_PluginItem, (prev, curr) => {
-    return prev.plugin === curr.plugin;
-});
+const PluginItem = memo(_PluginItem);
 export default PluginItem;
 
 const styles = StyleSheet.create({

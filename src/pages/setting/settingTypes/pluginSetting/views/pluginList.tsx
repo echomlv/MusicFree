@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import rpx from "@/utils/rpx";
 import * as DocumentPicker from "expo-document-picker";
 import Loading from "@/components/base/loading";
@@ -11,13 +11,12 @@ import Toast from "@/utils/toast";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 import Config from "@/core/appConfig";
-import Empty from "@/components/base/empty";
 import HorizontalSafeAreaView from "@/components/base/horizontalSafeAreaView.tsx";
 import { showDialog } from "@/components/dialogs/useDialog";
 import { showPanel } from "@/components/panels/usePanel";
 import AppBar from "@/components/base/appBar";
 import Fab from "@/components/base/fab";
-import PluginItem from "../components/pluginItem";
+import PluginGroups, { editPluginGroup } from "../components/pluginGroups";
 import { IIconName } from "@/components/base/icon.tsx";
 import { IInstallPluginResult } from "@/types/core/pluginManager";
 import { useI18N } from "@/core/i18n";
@@ -37,6 +36,7 @@ export default function PluginList() {
     const navigator = useNavigation<any>();
 
     const menuOptions: IOption[] = [
+        { icon: "folder-plus", title: "新建分组", onPress: () => editPluginGroup() },
         {
             icon: "bookmark-square",
             title: t("pluginSetting.menu.subscriptionSetting"),
@@ -83,12 +83,13 @@ export default function PluginList() {
 
             await Promise.all(
                 results.assets.map(async it => {
-                    await PluginManager.installPluginFromLocalFile(it.uri, {
+                    const result = await PluginManager.installPluginFromLocalFile(it.uri, {
                         notCheckVersion: Config.getConfig(
                             "basic.notCheckPluginVersion",
                         ),
                         useExpoFs: true,
                     });
+                    if (!result.success) throw new Error(result.message);
                 }),
             );
             // 初步过滤
@@ -164,7 +165,7 @@ export default function PluginList() {
             const urlItems = JSON.parse(urls!);
             if (Array.isArray(urlItems)) {
                 for (let i = 0; i < urlItems.length; ++i) {
-                    const result = await installPluginFromUrl(urlItems[i].url);
+                    const result = await installPluginFromUrl(urlItems[i].url, true);
                     if (result[0]) {
                         if (result[0].success) {
                             successResults.push(result[0]);
@@ -223,10 +224,12 @@ export default function PluginList() {
         const failResults: IInstallPluginResult[] = [];
 
         try {
+            const updatedUrls = new Set<string>();
             for (let i = 0; i < plugins.length; ++i) {
                 const srcUrl = plugins[i].instance.srcUrl;
-                if (srcUrl) {
-                    const result = await installPluginFromUrl(srcUrl);
+                if (srcUrl && !updatedUrls.has(srcUrl)) {
+                    updatedUrls.add(srcUrl);
+                    const result = await installPluginFromUrl(srcUrl, true);
                     if (result[0]) {
                         if (result[0].success) {
                             successResults.push(result[0]);
@@ -272,15 +275,7 @@ export default function PluginList() {
                     {loading ? (
                         <Loading />
                     ) : (
-                        <FlatList
-                            ListEmptyComponent={Empty}
-                            ListFooterComponent={<View style={style.blank} />}
-                            data={plugins ?? []}
-                            keyExtractor={_ => _.hash}
-                            renderItem={({ item: plugin }) => (
-                                <PluginItem key={plugin.hash} plugin={plugin} />
-                            )}
-                        />
+                        <PluginGroups plugins={plugins ?? []} />
                     )}
 
                     <Fab
@@ -340,7 +335,7 @@ const style = StyleSheet.create({
 
 
 
-async function installPluginFromUrl(text: string): Promise<IInstallPluginResult[]> {
+async function installPluginFromUrl(text: string, updating = false): Promise<IInstallPluginResult[]> {
     try {
         let urls: string[] = [];
         const inputUrl = text.trim();
@@ -369,6 +364,7 @@ async function installPluginFromUrl(text: string): Promise<IInstallPluginResult[
         return await Promise.all(
             urls.map(url =>
                 PluginManager.installPluginFromUrl(url, {
+                    restoreRemoved: !updating,
                     notCheckVersion: Config.getConfig(
                         "basic.notCheckPluginVersion",
                     ),

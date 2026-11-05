@@ -51,6 +51,8 @@ export default function IconButton(props: IIconButtonProps) {
     return (
         <Icon
             {...props}
+            accessible={!!props.accessibilityLabel}
+            accessibilityRole={props.accessibilityLabel ? "button" : undefined}
             color={color ?? colors[colorMap[fontColor]]}
             style={[{ minWidth: size }, styles.textCenter, style]}
             size={size}

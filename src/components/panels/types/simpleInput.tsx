@@ -19,6 +19,7 @@ interface ISimpleInputProps {
     maxLength?: number;
     placeholder?: string;
     autoFocus?: boolean;
+    initialValue?: string;
 }
 
 export default function SimpleInput(props: ISimpleInputProps) {
@@ -33,7 +34,7 @@ export default function SimpleInput(props: ISimpleInputProps) {
         autoFocus = true,
     } = props;
 
-    const [input, setInput] = useState("");
+    const [input, setInput] = useState(props.initialValue || "");
     const colors = useColors();
 
     return (

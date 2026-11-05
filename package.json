@@ -124,9 +124,8 @@
     "node": ">=18"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
-      "npm run lint",
-      "git add ."
+    "src/**/*.{js,jsx,ts,tsx}": [
+      "eslint --fix"
     ]
   },
   "repository": {

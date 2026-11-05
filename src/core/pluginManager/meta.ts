@@ -2,6 +2,7 @@ import getOrCreateMMKV from "@/utils/getOrCreateMMKV";
 import { safeParse, safeStringify } from "@/utils/jsonUtil";
 import { errorLog } from "@/utils/log";
 import { getStorage, removeStorage } from "@/utils/storage";
+import { PluginGroupState, readGroupState } from "./groups";
 
 type IPluginPlatform = string;
 
@@ -9,6 +10,8 @@ interface IPluginMetaStorage {
     $version: number;
     order: Record<IPluginPlatform, number>;
     disabledPlugins: Array<IPluginPlatform>;
+    pluginGroups: PluginGroupState;
+    removedBundleEntries: Record<string, string[]>;
     [key: `${IPluginPlatform}.alternativePlugin`]: IPluginPlatform | null;
     [key: `${IPluginPlatform}.userVariables`]: Record<string, string>;
 
@@ -73,6 +76,24 @@ class PluginMeta {
 
     getPluginOrder() {
         return this.getMetaStorage("order") ?? {};
+    }
+
+    getPluginGroups() {
+        return readGroupState(this.getMetaStorage("pluginGroups"));
+    }
+
+    setPluginGroups(state: PluginGroupState) {
+        this.setMetaStorage("pluginGroups", state);
+    }
+
+    getRemovedBundleEntries(bundleId: string): string[] {
+        return this.getMetaStorage("removedBundleEntries")?.[bundleId] ?? [];
+    }
+
+    setRemovedBundleEntries(bundleId: string, entries: string[]) {
+        const all = this.getMetaStorage("removedBundleEntries") ?? {};
+        all[bundleId] = entries;
+        this.setMetaStorage("removedBundleEntries", all);
     }
 
     setPluginOrder(orderMap: Record<IPluginPlatform, number>) {

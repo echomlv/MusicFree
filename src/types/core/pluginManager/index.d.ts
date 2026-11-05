@@ -1,10 +1,13 @@
 type Plugin = any; // Placeholder for the actual Plugin type
+import type { PluginGroup } from "@/core/pluginManager/groups";
 
 /**
  * 插件安装配置接口
  */
 export interface IInstallPluginConfig {
     notCheckVersion?: boolean;
+    /** Explicit reinstallation restores removed resources; updates preserve them. */
+    restoreRemoved?: boolean;
 }
 
 /**
@@ -16,6 +19,7 @@ export interface IInstallPluginResult {
     pluginName?: string;
     pluginHash?: string;
     pluginUrl?: string;
+    pluginNames?: string[];
 }
 
 /**
@@ -151,6 +155,14 @@ export interface IPluginManager {
      * @returns 表示插件是否启用的布尔值
      */
     isPluginEnabled(plugin: Plugin): boolean;
+    isPluginIndividuallyEnabled(plugin: Plugin): boolean;
+    getPluginGroups(): PluginGroup[];
+    getPluginGroup(plugin: Plugin): PluginGroup | undefined;
+    createPluginGroup(name: string): PluginGroup;
+    renamePluginGroup(id: string, name: string): void;
+    deletePluginGroup(id: string): void;
+    setPluginGroupEnabled(id: string, enabled: boolean): void;
+    movePluginToGroup(plugin: Plugin, id: string | null): void;
 
     /**
      * 设置插件的排序顺序并发送顺序更新事件

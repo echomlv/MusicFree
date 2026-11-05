@@ -143,6 +143,15 @@ declare namespace IPlugin {
         ) => Promise<ICommon.PaginationResponse<IMedia.IComment>>;
     }
 
+    /** One physical JavaScript file exposing independently selectable resources. */
+    interface IPluginBundle {
+        id: string;
+        name: string;
+        version?: string;
+        srcUrl?: string;
+        plugins: IPluginDefine[];
+    }
+
     export interface IPluginInstance extends IPluginDefine {
         /** 内部属性 */
         /** 插件路径 */

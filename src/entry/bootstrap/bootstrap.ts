@@ -192,11 +192,13 @@ async function extraMakeup() {
             if (Math.abs(now - lastUpdated) > 86400000) {
                 PersistStatus.set("app.pluginUpdateTime", now);
                 const plugins = PluginManager.getEnabledPlugins();
+                const updatedUrls = new Set<string>();
                 for (let i = 0; i < plugins.length; ++i) {
                     const srcUrl = plugins[i].instance.srcUrl;
-                    if (srcUrl) {
+                    if (srcUrl && !updatedUrls.has(srcUrl)) {
+                        updatedUrls.add(srcUrl);
                         // 静默失败
-                        await PluginManager.installPluginFromUrl(srcUrl).catch(emptyFunction);
+                        await PluginManager.installPluginFromUrl(srcUrl, { restoreRemoved: false }).catch(emptyFunction);
                     }
                 }
             }

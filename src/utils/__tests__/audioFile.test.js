@@ -1,3 +1,4 @@
+const {Buffer} = require('buffer');
 jest.mock('react-native-fs', () => ({downloadFile: jest.fn(), exists: jest.fn(), read: jest.fn(), stat: jest.fn(), unlink: jest.fn()}));
 const fs = require('react-native-fs');
 const {downloadAudioFile, getAudioExtension} = require('../audioFile');

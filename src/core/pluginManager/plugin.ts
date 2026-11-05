@@ -32,6 +32,7 @@ import Network from "../../utils/network";
 import MediaCache from "../mediaCache";
 import _internalPluginMeta from "./meta";
 import { IPluginManager } from "@/types/core/pluginManager";
+import { parsePluginExport } from "./bundle";
 
 
 axios.defaults.timeout = 2000;
@@ -93,6 +94,25 @@ const _console = {
 
 const appVersion = deviceInfoModule.getVersion();
 
+function evaluatePluginFile(funcCode: string, getName: () => string) {
+    const makeEnv = (name: () => string): any => ({
+        getUserVariables: () => _internalPluginMeta.getUserVariables(name()),
+        get userVariables() {
+            return this.getUserVariables() ?? {};
+        },
+        forPlugin: (platform: string) => makeEnv(() => platform),
+        appVersion, os: Platform.OS, lang: "zh-CN",
+    });
+    const env = makeEnv(getName);
+    const module = { exports: {} };
+    // eslint-disable-next-line no-new-func
+    Function(`'use strict'; return function(require, __musicfree_require, module, exports, console, env, URL, process) {\n${funcCode}\n}`)()(
+        _require, _require, module, module.exports, _console, env, URL,
+        { platform: Platform.OS, version: appVersion, env },
+    );
+    return parsePluginExport(module.exports);
+}
+
 function formatAuthUrl(url: string) {
     const urlObj = new URL(url);
 
@@ -147,6 +167,10 @@ export interface ILazyProps {
     supportedMethods?: string[];
     loadFuncCode?: () => Promise<string>;
     instance?: IPlugin.IPluginDefine;
+    fileHash?: string;
+    entryName?: string;
+    bundleId?: string;
+    bundleName?: string;
 }
 
 class PluginMethodsWrapper implements IPlugin.IPluginInstanceMethods {
@@ -849,6 +873,10 @@ export class Plugin {
     public instance: IPlugin.IPluginDefine = { platform: "" };
     /** 插件路径 */
     public path: string = "";
+    public fileHash: string = "";
+    public entryName?: string;
+    public bundleId?: string;
+    public bundleName?: string;
     /** 插件方法，内部进行标准化和校验 */
     public methods!: IPlugin.IPluginInstanceMethods;
 
@@ -867,8 +895,13 @@ export class Plugin {
     constructor(
         funcCode: string | (() => IPlugin.IPluginDefine) | null,
         pluginPath: string,
-        lazyProps: ILazyProps | null = null
+        lazyProps: ILazyProps | null = null,
+        fileInfo?: Pick<ILazyProps, "fileHash" | "entryName" | "bundleId" | "bundleName">
     ) {
+        Object.assign(this, fileInfo || (lazyProps ? {
+            fileHash: lazyProps.fileHash, entryName: lazyProps.entryName,
+            bundleId: lazyProps.bundleId, bundleName: lazyProps.bundleName,
+        } : {}));
         this.lazyProps = lazyProps;
         if (!lazyProps) {
             // 如果没有懒加载，直接挂载并初始化
@@ -886,6 +919,25 @@ export class Plugin {
             // 初始化方法，但实际调用时会先挂载插件
             this.methods = new PluginMethodsWrapper(this, this.ensureMounted.bind(this));
         }
+    }
+
+    static loadFile(funcCode: string, pluginPath: string): Plugin[] {
+        let rootName = "";
+        const parsed = evaluatePluginFile(funcCode, () => rootName);
+        rootName = parsed.name || parsed.plugins[0].platform;
+        const fileHash = sha256(funcCode).toString();
+        const entries = parsed.plugins.map(entry => new Plugin(
+            () => entry,
+            pluginPath,
+            null,
+            { fileHash, entryName: entry.platform, bundleId: parsed.id, bundleName: parsed.name },
+        ));
+        if (entries.some(entry => entry.state !== PluginState.Mounted)) throw new Error("插件文件存在无法加载的资源，未安装任何资源");
+        return entries;
+    }
+
+    static hashCode(code: string) {
+        return sha256(code).toString();
     }
 
     async ensureMounted() {
@@ -909,51 +961,15 @@ export class Plugin {
         this.state = PluginState.Loading;
         let _instance: IPlugin.IPluginDefine;
 
-        const _module: any = { exports: {} };
         try {
             if (typeof funcCode === "string") {
-                // 插件的环境变量
-                const env = {
-                    getUserVariables: () => {
-                        return (
-                            _internalPluginMeta.getUserVariables(this.name)
-                        );
-                    },
-                    get userVariables() {
-                        return this.getUserVariables() ?? {};
-                    },
-                    appVersion,
-                    os: Platform.OS,
-                    lang: "zh-CN",
-                };
-                const _process = {
-                    platform: Platform.OS,
-                    version: appVersion,
-                    env,
-                };
-
-                // eslint-disable-next-line no-new-func
-                _instance = Function(`
-                    'use strict';
-                    return function(require, __musicfree_require, module, exports, console, env, URL, process) {
-                        ${funcCode}
-                    }
-                `)()(
-                    _require,
-                    _require,
-                    _module,
-                    _module.exports,
-                    _console,
-                    env,
-                    URL,
-                    _process
-                );
-                if (_module.exports.default) {
-                    _instance = _module.exports
-                        .default as IPlugin.IPluginInstance;
-                } else {
-                    _instance = _module.exports as IPlugin.IPluginInstance;
-                }
+                const parsed = evaluatePluginFile(funcCode, () => this.entryName || this.name);
+                const entry = parsed.plugins.find(item => item.platform === this.entryName) || (!parsed.id ? parsed.plugins[0] : undefined);
+                if (!entry) throw new Error("插件包中找不到资源: " + this.entryName);
+                this.fileHash = sha256(funcCode).toString();
+                this.bundleId = parsed.id;
+                this.bundleName = parsed.name;
+                _instance = entry;
             } else {
                 _instance = funcCode();
             }
@@ -1004,8 +1020,11 @@ export class Plugin {
             this.state = PluginState.Error;
             this.errorReason = this.errorReason ?? PluginErrorReason.CannotParse;
         } else {
-            if (typeof funcCode === "string") {
-                this.hash = sha256(funcCode).toString();
+            if (this.fileHash) {
+                this.hash = this.bundleId ? sha256(this.fileHash + "@" + this.name).toString() : this.fileHash;
+            } else if (typeof funcCode === "string") {
+                this.fileHash = sha256(funcCode).toString();
+                this.hash = this.fileHash;
             } else {
                 this.hash = sha256(pluginPath + "@" + appVersion).toString();
             }
