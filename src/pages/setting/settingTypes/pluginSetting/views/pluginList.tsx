@@ -9,7 +9,7 @@ import { trace } from "@/utils/log";
 
 import Toast from "@/utils/toast";
 import axios from "axios";
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import Config from "@/core/appConfig";
 import HorizontalSafeAreaView from "@/components/base/horizontalSafeAreaView.tsx";
 import { showDialog } from "@/components/dialogs/useDialog";
@@ -30,6 +30,7 @@ interface IOption {
 export default function PluginList() {
     const plugins = useSortedPlugins();
     const { t } = useI18N();
+    const isFocused = useIsFocused();
 
     const [loading, setLoading] = useState(false);
 
@@ -275,7 +276,7 @@ export default function PluginList() {
                     {loading ? (
                         <Loading />
                     ) : (
-                        <PluginGroups plugins={plugins ?? []} />
+                        <PluginGroups key={isFocused ? "focused" : "unfocused"} plugins={plugins ?? []} />
                     )}
 
                     <Fab

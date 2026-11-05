@@ -33,14 +33,16 @@ export function editPluginGroup(group?: PluginGroup) {
 
 export default function PluginGroups({ plugins }: { plugins: Plugin[] }) {
     const colors = useColors();
-    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+    // Keep groups collapsed when the plugin management page is opened.
+    // The state stores the groups that the user has explicitly expanded.
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const groups = PluginManager.getPluginGroups();
     const sections = groups.map(group => {
         const members = plugins.filter(plugin => PluginManager.getPluginGroup(plugin)?.id === group.id);
-        return { key: group.id, title: group.name, group: group as PluginGroup | undefined, count: members.length, data: collapsed[group.id] ? [] : members };
+        return { key: group.id, title: group.name, group: group as PluginGroup | undefined, count: members.length, data: expanded[group.id] ? members : [] };
     });
     const ungrouped = plugins.filter(plugin => !PluginManager.getPluginGroup(plugin));
-    if (ungrouped.length) sections.push({ key: "ungrouped", title: "未分组", group: undefined, count: ungrouped.length, data: collapsed.ungrouped ? [] : ungrouped });
+    if (ungrouped.length) sections.push({ key: "ungrouped", title: "未分组", group: undefined, count: ungrouped.length, data: expanded.ungrouped ? ungrouped : [] });
     function move(plugin: Plugin) {
         showPanel("SimpleSelect", {
             header: "移动到分组 · " + plugin.name,
@@ -76,8 +78,8 @@ export default function PluginGroups({ plugins }: { plugins: Plugin[] }) {
         ListFooterComponent={<View style={{ height: rpx(200) }} />}
         renderSectionHeader={({ section }) => <View style={[styles.header, { backgroundColor: colors.card }]}>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={section.title + "分组，" + section.count + "个资源"}
-                style={styles.title} onPress={() => setCollapsed(value => ({ ...value, [section.key]: !value[section.key] }))}>
-                <ThemeText fontWeight="bold">{collapsed[section.key] ? "+ " : "− "}{section.title}</ThemeText>
+                style={styles.title} onPress={() => setExpanded(value => ({ ...value, [section.key]: !value[section.key] }))}>
+                <ThemeText fontWeight="bold">{expanded[section.key] ? "− " : "+ "}{section.title}</ThemeText>
                 <ThemeText fontSize="subTitle" fontColor="textSecondary">{section.count} 个资源</ThemeText>
             </TouchableOpacity>
             {section.group ? <>
