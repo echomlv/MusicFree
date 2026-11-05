@@ -19,11 +19,13 @@ export function readGroupState(value: any): PluginGroupState {
     return { groups, assignments: value.assignments && typeof value.assignments === "object" ? { ...value.assignments } : {} };
 }
 
-export function registerBundleGroup(state: PluginGroupState, bundleId: string, name: string, platforms: string[]): PluginGroupState {
+export function registerBundleGroup(state: PluginGroupState, bundleId: string, name: string, platforms: string[], restoreMissing = false): PluginGroupState {
     const next = readGroupState(state);
     let group = next.groups.find(item => item.bundleId === bundleId);
+    // Only an explicit reimport restores ungrouped resources after the auto group was deleted.
+    const restoreUngrouped = restoreMissing && !group && platforms.some(platform => next.assignments[platform] === null);
     if (!group) {
-        if (platforms.every(platform => Object.prototype.hasOwnProperty.call(next.assignments, platform))) return next;
+        if (!restoreUngrouped && platforms.every(platform => Object.prototype.hasOwnProperty.call(next.assignments, platform))) return next;
         group = next.groups.find(item => !item.bundleId && item.name === name);
         if (group) group.bundleId = bundleId;
     }
@@ -34,7 +36,7 @@ export function registerBundleGroup(state: PluginGroupState, bundleId: string, n
         next.groups.push(group);
     }
     platforms.forEach(platform => {
-        if (!Object.prototype.hasOwnProperty.call(next.assignments, platform)) next.assignments[platform] = group!.id;
+        if (!Object.prototype.hasOwnProperty.call(next.assignments, platform) || (restoreUngrouped && next.assignments[platform] === null)) next.assignments[platform] = group!.id;
     });
     return next;
 }

@@ -6,7 +6,7 @@ import type { PluginGroup } from "@/core/pluginManager/groups";
  */
 export interface IInstallPluginConfig {
     notCheckVersion?: boolean;
-    /** Explicit reinstallation restores removed resources; updates preserve them. */
+    /** Explicit reinstallation restores removed resources and missing auto groups; updates preserve removals. */
     restoreRemoved?: boolean;
 }
 

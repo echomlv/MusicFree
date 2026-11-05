@@ -84,16 +84,18 @@ class PluginManager implements IPluginManager, IInjectable {
         })) }));
     }
 
-    private registerGroups(plugins: Plugin[]) {
+    private registerGroups(plugins: Plugin[], restoreMissing = false) {
         let state = pluginMeta.getPluginGroups();
+        const previous = JSON.stringify(state);
         const bundles = new Map<string, Plugin[]>();
         plugins.forEach(plugin => {
             if (plugin.bundleId) bundles.set(plugin.bundleId, [...(bundles.get(plugin.bundleId) ?? []), plugin]);
         });
         bundles.forEach((entries, id) => {
-            state = registerBundleGroup(state, id, entries[0].bundleName || id, entries.map(entry => entry.name));
+            state = registerBundleGroup(state, id, entries[0].bundleName || id, entries.map(entry => entry.name), restoreMissing);
         });
         pluginMeta.setPluginGroups(state);
+        return previous !== JSON.stringify(state);
     }
 
     async setup() {
@@ -166,6 +168,7 @@ class PluginManager implements IPluginManager, IInjectable {
                 incoming = incoming.filter(entry => !removed.includes(entry.name));
             }
             if (incoming.length === replacing.length && incoming.every(entry => replacing.some(old => old.hash === entry.hash))) {
+                if (first.bundleId && config.restoreRemoved !== false && this.registerGroups(incoming, true)) this.groupsChanged();
                 return { success: true, message: "插件已安装", pluginName: first.bundleName || first.name, pluginHash: first.hash, pluginNames: incoming.map(item => item.name) };
             }
             path = `${pathConst.pluginPath}${nanoid()}.js`;
@@ -174,7 +177,7 @@ class PluginManager implements IPluginManager, IInjectable {
                 entry.path = path!;
             });
             if (first.bundleId && config.restoreRemoved !== false) pluginMeta.setRemovedBundleEntries(first.bundleId, []);
-            this.registerGroups(incoming);
+            this.registerGroups(incoming, config.restoreRemoved !== false);
             const next = [...existing.filter(item => !replacing.includes(item)), ...incoming];
             this.setPlugins(next);
             for (const oldPath of new Set(replacing.map(item => item.path))) {

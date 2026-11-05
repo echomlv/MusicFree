@@ -157,3 +157,69 @@ it('executes legacy top-level code only once and removes shared files once durin
     expect(value.getSortedPlugins()).toHaveLength(5);
     expect(value.getPluginGroups()).toEqual([]);
 });
+
+
+it('restores a deleted automatic group on identical explicit reimport without rewriting the file', async () => {
+    const value = manager(); await install(value, bundle());
+    const wy = value.getByName('墨澜-wy');
+    value.setUserVariables(wy, {key: 'saved'});
+    value.setPluginEnabled(wy, false);
+    value.deletePluginGroup(value.getPluginGroups()[0].id);
+    const path = wy.path;
+    const writeFile = require('react-native-fs').writeFile;
+    writeFile.mockClear();
+    expect((await install(value, bundle())).success).toBe(true);
+    expect(value.getPluginGroups()).toHaveLength(1);
+    expect(value.getPluginGroup(wy).name).toBe('墨澜');
+    expect(value.getPluginGroup(value.getByName('墨澜-kg')).name).toBe('墨澜');
+    expect(value.getByName('墨澜-wy').path).toBe(path);
+    expect(value.isPluginEnabled(wy)).toBe(false);
+    expect(value.getUserVariables(wy)).toEqual({key:'saved'});
+    expect(writeFile).not.toHaveBeenCalled();
+    await install(value, bundle());
+    expect(value.getPluginGroups()).toHaveLength(1);
+});
+
+it('preserves a deleted group on automatic update but restores it on explicit reimport of that version', async () => {
+    let value = manager(); await install(value, bundle());
+    value.deletePluginGroup(value.getPluginGroups()[0].id);
+    await install(value, bundle('2.0.0'), {restoreRemoved:false});
+    expect(value.getPluginGroups()).toEqual([]);
+    jest.resetModules(); value = manager(true); await value.setup();
+    expect(value.getPluginGroups()).toEqual([]);
+    await install(value, bundle('2.0.0'));
+    expect(value.getPluginGroups()).toHaveLength(1);
+    expect(value.getPluginGroup(value.getByName('墨澜-wy')).name).toBe('墨澜');
+});
+
+it('restores only ungrouped bundle entries without moving entries back from custom groups', async () => {
+    const value = manager(); await install(value, bundle());
+    const original = value.getPluginGroups()[0];
+    const custom = value.createPluginGroup('常用');
+    value.movePluginToGroup(value.getByName('墨澜-wy'), custom.id);
+    value.deletePluginGroup(original.id);
+    await install(value, bundle('2.0.0'));
+    expect(value.getPluginGroup(value.getByName('墨澜-wy')).id).toBe(custom.id);
+    expect(value.getPluginGroup(value.getByName('墨澜-kg')).name).toBe('墨澜');
+});
+
+it('does not create an empty automatic group when all bundle entries were moved elsewhere', async () => {
+    const value = manager(); await install(value, bundle());
+    const original = value.getPluginGroups()[0];
+    const custom = value.createPluginGroup('常用');
+    value.getSortedPlugins().forEach(plugin => value.movePluginToGroup(plugin, custom.id));
+    value.deletePluginGroup(original.id);
+    await install(value, bundle());
+    expect(value.getPluginGroups()).toEqual([custom]);
+});
+
+it('keeps explicit ungrouping and renamed group settings when the automatic group still exists', async () => {
+    const value = manager(); await install(value, bundle());
+    const original = value.getPluginGroups()[0];
+    value.renamePluginGroup(original.id, '我的音源');
+    value.setPluginGroupEnabled(original.id, false);
+    value.movePluginToGroup(value.getByName('墨澜-wy'), null);
+    await install(value, bundle('2.0.0'));
+    expect(value.getPluginGroup(value.getByName('墨澜-wy'))).toBeUndefined();
+    expect(value.getPluginGroups()).toEqual([expect.objectContaining({id: original.id, name: '我的音源', enabled: false})]);
+});
