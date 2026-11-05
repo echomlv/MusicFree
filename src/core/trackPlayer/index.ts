@@ -1014,53 +1014,37 @@ class TrackPlayer extends EventEmitter<{
         const keyword = musicItem.title || musicItem.alias;
         const plugins = this.pluginManagerService.getSearchablePlugins(type);
 
-        let distance = Infinity;
-        let minDistanceMusicItem;
-        let targetPlugin;
-
         const startTime = Date.now();
-
-        for (let plugin of plugins) {
-            // 超时时间：8s
-            if (abortFunction?.() || Date.now() - startTime > 8000) {
-                break;
-            }
-            if (plugin.name === musicItem.platform) {
-                continue;
-            }
-            const results = await beforeDeadline<IPlugin.ISearchResult<T> | null>(
+        const searchDeadline = Math.min(startTime + 8000, Date.now() + 2000);
+        const searchablePlugins = plugins.filter(plugin => plugin.name !== musicItem.platform);
+        const searchResults = await Promise.all(searchablePlugins.map(async plugin => ({
+            plugin,
+            results: await beforeDeadline<IPlugin.ISearchResult<T> | null>(
                 () => plugin.methods.search(keyword, 1, type),
-                Math.min(startTime + 8000, Date.now() + 2000),
-            );
-            if (abortFunction?.()) return null;
+                searchDeadline,
+            ),
+        })));
+        if (abortFunction?.()) return null;
 
-            // 取前两个
-            const firstTwo = results?.data?.slice(0, 2) || [];
-
-            for (let item of firstTwo) {
+        let bestDistance = Infinity;
+        let bestMusicItem;
+        let bestPlugin;
+        for (const { plugin, results } of searchResults) {
+            for (const item of results?.data?.slice(0, 2) || []) {
                 if (item.title === keyword && item.artist === musicItem.artist) {
-                    distance = 0;
-                    minDistanceMusicItem = item;
-                    targetPlugin = plugin;
-                    break;
-                } else {
-                    const dist =
-                        minDistance(keyword, item.title) +
-                        minDistance(item.artist, musicItem.artist);
-                    if (dist < distance) {
-                        distance = dist;
-                        minDistanceMusicItem = item;
-                        targetPlugin = plugin;
-                    }
+                    return item as ICommon.SupportMediaItemBase[T];
+                }
+                const distance = minDistance(keyword, item.title) +
+                    minDistance(item.artist, musicItem.artist);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestMusicItem = item;
+                    bestPlugin = plugin;
                 }
             }
-
-            if (distance === 0) {
-                break;
-            }
         }
-        if (minDistanceMusicItem && targetPlugin) {
-            return minDistanceMusicItem as ICommon.SupportMediaItemBase[T];
+        if (bestMusicItem && bestPlugin) {
+            return bestMusicItem as ICommon.SupportMediaItemBase[T];
         }
 
         return null;
