@@ -42,6 +42,7 @@ import { consumeSleepTimer } from "@/utils/sleepTimerState";
 import { dismissToast, showToast } from "@/components/base/toast";
 import { downloadPlaybackSource } from "@/utils/iosPlaybackSource";
 import i18n from "../i18n";
+import { beforeDeadline } from "./sourceTimeout";
 
 
 
@@ -499,27 +500,31 @@ class TrackPlayer extends EventEmitter<{
                 this.configService.getConfig("basic.defaultPlayQuality") ?? "standard",
                 this.configService.getConfig("basic.playQualityOrder") ?? "asc",
             );
-            // 5.3 插件返回音源
-            let source: IPlugin.IMediaSourceResult | null = null;
-            for (let quality of qualityOrder) {
-                if (this.isCurrentMusic(musicItem)) {
-                    source =
-                        (await plugin?.methods?.getMediaSource(
-                            musicItem,
-                            quality,
-                        )) ?? null;
-                    // 5.3.1 获取到真实源
-                    if (source) {
+            // Automatic failover shares one budget across all qualities, not one timeout per attempt.
+            const autoChangeSource = !!this.configService.getConfig("basic.tryChangeSourceWhenPlayFail");
+            const requestId = this.playRequestId;
+            const isStale = () => requestId !== this.playRequestId || !this.isCurrentMusic(musicItem);
+            const resolveSource = async (targetPlugin: any, item: IMusic.IMusicItemBase) => {
+                const deadline = Date.now() + 8000;
+                for (const quality of qualityOrder) {
+                    if (isStale() || (autoChangeSource && Date.now() >= deadline)) break;
+                    const resolved = autoChangeSource
+                        ? await beforeDeadline<IPlugin.IMediaSourceResult | null>(
+                            () => targetPlugin?.methods?.getMediaSource(item, quality, 0) ?? Promise.resolve(null),
+                            deadline,
+                        )
+                        : (await targetPlugin?.methods?.getMediaSource(item, quality)) ?? null;
+                    if (isStale()) return null;
+                    if (resolved?.url) {
                         this.setQuality(quality);
-                        break;
+                        return resolved;
                     }
-                } else {
-                    // 5.3.2 已经切换到其他歌曲了，
-                    return;
                 }
-            }
+                return null;
+            };
+            let source: IPlugin.IMediaSourceResult | null = await resolveSource(plugin, musicItem);
 
-            if (!this.isCurrentMusic(musicItem)) {
+            if (isStale()) {
                 return;
             }
             if (!source) {
@@ -537,37 +542,23 @@ class TrackPlayer extends EventEmitter<{
                 // 5.4 没有返回源
                 if (!source && !musicItem.url) {
                     // 插件失效的情况
-                    if (this.configService.getConfig("basic.tryChangeSourceWhenPlayFail")) {
+                    if (autoChangeSource) {
                         // 重试
                         const similarMusic = await this.getSimilarMusic(
                             musicItem,
                             "music",
-                            () => !this.isCurrentMusic(musicItem),
+                            isStale,
                         );
 
                         if (similarMusic) {
                             const similarMusicPlugin =
                                 this.pluginManagerService.getByMedia(similarMusic);
 
-                            for (let quality of qualityOrder) {
-                                if (this.isCurrentMusic(musicItem)) {
-                                    source =
-                                        (await similarMusicPlugin?.methods?.getMediaSource(
-                                            similarMusic,
-                                            quality,
-                                        )) ?? null;
-                                    // 5.4.1 获取到真实源
-                                    if (source) {
-                                        this.setQuality(quality);
-                                        break;
-                                    }
-                                } else {
-                                    // 5.4.2 已经切换到其他歌曲了，
-                                    return;
-                                }
-                            }
+                            source = await resolveSource(similarMusicPlugin, similarMusic);
+
                         }
 
+                        if (isStale()) return;
                         if (!source) {
                             throw new Error(PlayFailReason.INVALID_SOURCE);
                         }
@@ -1003,7 +994,7 @@ class TrackPlayer extends EventEmitter<{
         type: T = "music" as T,
         abortFunction?: () => boolean,
     ): Promise<ICommon.SupportMediaItemBase[T] | null> {
-        const keyword = musicItem.alias || musicItem.title;
+        const keyword = musicItem.title || musicItem.alias;
         const plugins = this.pluginManagerService.getSearchablePlugins(type);
 
         let distance = Infinity;
@@ -1020,9 +1011,11 @@ class TrackPlayer extends EventEmitter<{
             if (plugin.name === musicItem.platform) {
                 continue;
             }
-            const results = await plugin.methods
-                .search(keyword, 1, type)
-                .catch(() => null);
+            const results = await beforeDeadline<IPlugin.ISearchResult<T> | null>(
+                () => plugin.methods.search(keyword, 1, type),
+                Math.min(startTime + 8000, Date.now() + 2000),
+            );
+            if (abortFunction?.()) return null;
 
             // 取前两个
             const firstTwo = results?.data?.slice(0, 2) || [];
@@ -1035,7 +1028,7 @@ class TrackPlayer extends EventEmitter<{
                     break;
                 } else {
                     const dist =
-                        minDistance(keyword, musicItem.title) +
+                        minDistance(keyword, item.title) +
                         minDistance(item.artist, musicItem.artist);
                     if (dist < distance) {
                         distance = dist;

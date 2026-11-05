@@ -321,3 +321,90 @@ it('does not let a late startup source replace a source resolved by an explicit 
     expect(nativePlayer.setQueue).toHaveBeenCalledTimes(1);
     expect(nativePlayer.setQueue).toHaveBeenCalledWith([expect.objectContaining({url: 'https://example.com/fresh.mp3'})]);
 });
+
+
+const flushSourcePromises = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
+afterEach(() => jest.useRealTimers());
+
+it('starts alternate-source lookup after one shared 8s budget and ignores a late original URL', async () => {
+    jest.useFakeTimers();
+    player.play.mockRestore();
+    const original = {id: 'failover', platform: 'broken', title: '解药', artist: '暴躁默', alias: '酷狗'};
+    const alternative = {...original, id: 'other', platform: 'working'};
+    let finishOriginal;
+    const resolveOriginal = jest.fn(() => new Promise(resolve => { finishOriginal = resolve; }));
+    const resolveAlternative = jest.fn().mockResolvedValue({url: 'https://example.com/alternative.mp3'});
+    const search = jest.fn().mockResolvedValue({data: [alternative]});
+    player.pluginManagerService = {
+        getByName: () => ({methods: {getMediaSource: resolveOriginal}}),
+        getByMedia: () => ({methods: {getMediaSource: resolveAlternative}}),
+        getSearchablePlugins: () => [{name: 'working', methods: {search}}],
+    };
+    getConfig.mockImplementation(key => key === 'basic.tryChangeSourceWhenPlayFail' ? true : undefined);
+    const pending = player.play(original, true);
+    await flushSourcePromises();
+    expect(search).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(8000);
+    await pending;
+    expect(resolveOriginal).toHaveBeenCalledTimes(1);
+    expect(resolveOriginal).toHaveBeenCalledWith(original, 'standard', 0);
+    expect(search).toHaveBeenCalledWith('解药', 1, 'music');
+    expect(resolveAlternative).toHaveBeenCalledWith(alternative, 'standard', 0);
+    expect(nativePlayer.setQueue).toHaveBeenLastCalledWith([expect.objectContaining({url: 'https://example.com/alternative.mp3'})]);
+    finishOriginal({url: 'https://example.com/late.mp3'});
+    await flushSourcePromises();
+    expect(nativePlayer.setQueue).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+});
+
+it('continues to another search provider after a stalled request and ranks candidate titles', async () => {
+    jest.useFakeTimers();
+    const original = {id: 'lookup', platform: 'broken', title: '解药', artist: '暴躁默', alias: '酷狗'};
+    const wrong = {id: 'wrong', platform: 'working', title: '别的歌', artist: '暴躁默'};
+    const right = {id: 'right', platform: 'working', title: '解药', artist: '暴躁默'};
+    const stalledSearch = jest.fn(() => new Promise(() => {}));
+    const workingSearch = jest.fn().mockResolvedValue({data: [wrong, right]});
+    player.pluginManagerService = {getSearchablePlugins: () => [
+        {name: 'slow', methods: {search: stalledSearch}},
+        {name: 'working', methods: {search: workingSearch}},
+    ]};
+    const pending = player.getSimilarMusic(original, 'music');
+    await jest.advanceTimersByTimeAsync(2000);
+    await expect(pending).resolves.toEqual(right);
+    expect(workingSearch).toHaveBeenCalledWith('解药', 1, 'music');
+    expect(jest.getTimerCount()).toBe(0);
+});
+
+it('does not publish a fallback when a newer play request supersedes the original', async () => {
+    jest.useFakeTimers();
+    player.play.mockRestore();
+    const original = {id: 'superseded', platform: 'broken', title: '解药', artist: '暴躁默'};
+    const search = jest.fn();
+    player.pluginManagerService = {
+        getByName: () => ({methods: {getMediaSource: () => new Promise(() => {})}}),
+        getSearchablePlugins: () => [{name: 'working', methods: {search}}],
+    };
+    getConfig.mockImplementation(key => key === 'basic.tryChangeSourceWhenPlayFail' ? true : undefined);
+    const pending = player.play(original, true);
+    await flushSourcePromises();
+    player.playRequestId++;
+    await jest.advanceTimersByTimeAsync(8000);
+    await pending;
+    expect(search).not.toHaveBeenCalled();
+    expect(nativePlayer.setQueue).not.toHaveBeenCalled();
+});
+
+
+it('preserves the existing quality attempts and retry defaults with automatic failover disabled', async () => {
+    player.play.mockRestore();
+    const original = {id: 'no-failover', platform: 'test', title: 'Song', artist: 'Artist'};
+    const resolve = jest.fn().mockResolvedValueOnce(null).mockResolvedValue({url: 'https://example.com/high.mp3'});
+    const search = jest.fn();
+    player.pluginManagerService = {
+        getByName: () => ({methods: {getMediaSource: resolve}}),
+        getSearchablePlugins: search,
+    };
+    await player.play(original, true);
+    expect(resolve.mock.calls.map(call => call.slice(1))).toEqual([['standard'], ['high']]);
+    expect(search).not.toHaveBeenCalled();
+});
