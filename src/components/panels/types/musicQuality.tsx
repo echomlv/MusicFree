@@ -1,5 +1,5 @@
 import React, { Fragment } from "react";
-import { Pressable, StyleSheet } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import rpx from "@/utils/rpx";
 import ThemeText from "@/components/base/themeText";
 
@@ -12,6 +12,9 @@ import { hidePanel } from "../usePanel";
 import Divider from "@/components/base/divider";
 import PanelHeader from "../base/panelHeader";
 import { useI18N } from "@/core/i18n";
+import useColors from "@/hooks/useColors";
+import Icon from "@/components/base/icon";
+import { useMusicQuality } from "@/core/trackPlayer";
 
 interface IMusicQualityProps {
     type?: "play" | "download";
@@ -27,6 +30,8 @@ interface IMusicQualityProps {
 export default function MusicQuality(props: IMusicQualityProps) {
     const safeAreaInsets = useSafeAreaInsets();
     const i18n = useI18N();
+    const colors = useColors();
+    const currentQuality = useMusicQuality();
 
     const { musicItem, onQualityPress, type = "play" } = props ?? {};
 
@@ -49,6 +54,7 @@ export default function MusicQuality(props: IMusicQualityProps) {
                     <ScrollView
                         style={[
                             style.body,
+                            { backgroundColor: colors.backdrop },
                             {
                                 marginBottom: safeAreaInsets.bottom,
                             },
@@ -58,20 +64,30 @@ export default function MusicQuality(props: IMusicQualityProps) {
                                 <Fragment key={`frag-${key}`}>
                                     <Pressable
                                         key={`btn-${key}`}
-                                        style={style.item}
+                                        style={({ pressed }) => [
+                                            style.item,
+                                            pressed ? { backgroundColor: colors.listActive } : null,
+                                        ]}
                                         onPress={() => {
                                             onQualityPress(key, musicItem);
                                             hidePanel();
                                         }}>
-                                        <ThemeText>
-                                            {qualityText[key]}{" "}
-                                            {musicItem.qualities?.[key]?.size
-                                                ? `(${sizeFormatter(
-                                                      musicItem.qualities[key]
-                                                          .size!,
-                                                )})`
-                                                : ""}
-                                        </ThemeText>
+                                        <View style={style.itemContent}>
+                                            <ThemeText
+                                                fontColor={type === "play" && currentQuality === key ? "primary" : "text"}
+                                                fontWeight={type === "play" && currentQuality === key ? "medium" : "regular"}>
+                                                {qualityText[key]}{" "}
+                                                {musicItem.qualities?.[key]?.size
+                                                    ? `(${sizeFormatter(
+                                                          musicItem.qualities[key]
+                                                              .size!,
+                                                    )})`
+                                                    : ""}
+                                            </ThemeText>
+                                            {type === "play" && currentQuality === key ? (
+                                                <Icon name="check-circle" color={colors.primary} size={rpx(36)} />
+                                            ) : null}
+                                        </View>
                                     </Pressable>
                                 </Fragment>
                             );
@@ -96,5 +112,12 @@ const style = StyleSheet.create({
     item: {
         height: rpx(96),
         justifyContent: "center",
+    },
+    itemContent: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: rpx(8),
     },
 });
