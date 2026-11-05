@@ -53,9 +53,12 @@ export default function (props: IPanelBaseProps) {
     const timerRef = useRef<any>();
     const safeAreaInsets = useSafeAreaInsets();
     const orientation = useOrientation();
+    const panelHeight = positionMethod === "bottom"
+        ? height + rpx(132) + safeAreaInsets.bottom
+        : height;
     const useAnimatedBase = useMemo(
-        () => (orientation === "horizontal" ? rpx(750) : height),
-        [orientation, height],
+        () => (orientation === "horizontal" ? rpx(750) : panelHeight),
+        [orientation, panelHeight],
     );
 
     const backHandlerRef = useRef<NativeEventSubscription>();
@@ -165,12 +168,10 @@ export default function (props: IPanelBaseProps) {
                     bottom: 0,
                 } : {
                     top: positionMethod === "top" ? (NativeUtils.getWindowDimensions().height + safeAreaInsets.top) - height - safeAreaInsets.bottom : undefined,
-                    // The navigator content ends above the persistent music bar.
-                    // Extend bottom sheets through that area so the backdrop stays continuous.
                     bottom: positionMethod === "bottom"
                         ? -(rpx(132) + safeAreaInsets.bottom)
                         : undefined,
-                    height: height,
+                    height: panelHeight,
                 },
                 {
                     backgroundColor: colors.backdrop,
@@ -224,7 +225,6 @@ const style = StyleSheet.create({
     },
     wrapper: {
         position: "absolute",
-        maxHeight: "100%",
         width: rpx(750),
         right: 0,
         borderTopLeftRadius: rpx(28),

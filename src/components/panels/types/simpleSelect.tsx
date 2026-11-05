@@ -32,6 +32,7 @@ export default function SimpleSelect(props: ISimpleSelectProps) {
     return (
         <PanelBase
             height={height}
+            keyboardAvoidBehavior="none"
             renderBody={() => (
                 <>
                     <PanelHeader title={header} hideButtons />

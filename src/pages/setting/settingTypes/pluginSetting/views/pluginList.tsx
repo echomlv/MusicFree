@@ -283,6 +283,7 @@ export default function PluginList() {
                         icon="plus"
                         onPress={() => {
                             showPanel("SimpleSelect", {
+                                height: rpx(640),
                                 header: t("pluginSetting.menu.installPlugin"),
                                 candidates: [
                                     {
