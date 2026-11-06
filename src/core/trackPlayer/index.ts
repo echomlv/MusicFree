@@ -15,6 +15,7 @@ import {
 import Network from "@/utils/network";
 import PersistStatus from "@/utils/persistStatus";
 import { getQualityOrder } from "@/utils/qualities";
+import { normalizeQishuiArtwork } from "@/utils/qishuiArtwork";
 import { musicIsPaused } from "@/utils/trackUtils";
 import EventEmitter from "eventemitter3";
 import { produce } from "immer";
@@ -794,6 +795,8 @@ class TrackPlayer extends EventEmitter<{
         }
         if (typeof musicItem.artwork !== "string") {
             musicItem.artwork = ImgAsset.albumDefault;
+        } else {
+            musicItem.artwork = normalizeQishuiArtwork(musicItem.artwork);
         }
         this.currentIndex = this.getMusicIndexInPlayList(musicItem);
         getDefaultStore().set(currentMusicAtom, musicItem);
@@ -831,8 +834,9 @@ class TrackPlayer extends EventEmitter<{
 
     // 设置音源
     private async setTrackSource(track: Track, autoPlay = true) {
+        const sourceTrack = { ...track, artwork: typeof track.artwork === "string" ? normalizeQishuiArtwork(track.artwork) : track.artwork };
         const clonedTrack = this.patchMediaArtwork({
-            ...track,
+            ...sourceTrack,
             isInit: autoPlay ? false : track.isInit,
         });
         if (!clonedTrack) {
@@ -840,7 +844,7 @@ class TrackPlayer extends EventEmitter<{
         }
         await ReactNativeTrackPlayer.setQueue([clonedTrack]);
         const originalUrl = (track as Track & { iosOriginalUrl?: string }).iosOriginalUrl;
-        PersistStatus.set("music.musicItem", { ...track, url: originalUrl ?? track.url } as IMusic.IMusicItem);
+        PersistStatus.set("music.musicItem", { ...sourceTrack, url: originalUrl ?? track.url } as IMusic.IMusicItem);
         PersistStatus.set("music.progress", 0);
         if (autoPlay) {
             await ReactNativeTrackPlayer.play();
@@ -890,7 +894,7 @@ class TrackPlayer extends EventEmitter<{
         mediaItem: ICommon.IMediaBase,
         props: Record<string, any> | undefined,
     ) {
-        return props
+        const merged = props
             ? {
                 ...mediaItem,
                 ...props,
@@ -898,6 +902,7 @@ class TrackPlayer extends EventEmitter<{
                 platform: mediaItem.platform,
             }
             : mediaItem;
+        return typeof merged.artwork === "string" ? { ...merged, artwork: normalizeQishuiArtwork(merged.artwork) } : merged;
     }
 
     private sortByTimestampAndIndex(array: any[], newArray = false) {

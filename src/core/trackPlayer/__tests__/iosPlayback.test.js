@@ -408,3 +408,19 @@ it('preserves the existing quality attempts and retry defaults with automatic fa
     expect(resolve.mock.calls.map(call => call.slice(1))).toEqual([['standard'], ['high']]);
     expect(search).not.toHaveBeenCalled();
 });
+
+
+it('repairs a restored Qishui cover before the mini player receives the current track', () => {
+    const raw = 'https://p3-luna.douyinpic.com/img/ies-music/pgc_cover_3656fc2edd76a1f76f5ef87ee9818998';
+    player.setCurrentMusic({...song, artwork:raw});
+    expect(player.currentMusic.artwork).toBe(raw + '~tplv-b829550vbb-resize:960:960.png');
+});
+
+it('uses the repaired artwork for the native queue and persisted playback state', async () => {
+    const raw = 'https://p3-luna.douyinpic.com/img/ies-music/pgc_cover_3656fc2edd76a1f76f5ef87ee9818998';
+    const artwork = raw + '~tplv-b829550vbb-resize:960:960.png';
+    await player.setTrackSource({...song,artwork:raw},false);
+    expect(nativePlayer.setQueue).toHaveBeenCalledWith([expect.objectContaining({artwork})]);
+    expect(persist.set).toHaveBeenCalledWith('music.musicItem',expect.objectContaining({artwork}));
+    expect(player.mergeTrackSource(song,{artwork:raw}).artwork).toBe(artwork);
+});
