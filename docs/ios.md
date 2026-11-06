@@ -2,21 +2,33 @@
 
 此分支以 iOS 为目标，最低部署版本为 iOS 15.1。保留 MusicFree 的插件、歌单、搜索、主题和歌词业务，播放器使用现有的 React Native Track Player 4.1.1。
 
-需要 macOS、完整 Xcode、Node.js、Watchman，以及 Ruby/Bundler/CocoaPods。项目通过 `.nvmrc` 固定 Node.js，通过 `.ruby-version` 固定 Ruby 3.3.12。Watchman 用于 Metro 文件监听，避免 Node 默认监听器出现 `EMFILE` 错误。
+需要 macOS、完整 Xcode、Node.js，以及 Ruby/Bundler/CocoaPods。项目通过 `.nvmrc` 固定 Node.js，通过 `.ruby-version` 固定 Ruby 3.3.12。Metro 使用内置文件监听，不依赖 Watchman；macOS 13.7 无需通过 Homebrew 安装 Watchman 即可启动 Metro。
 
 ```sh
-brew install rbenv ruby-build watchman
+brew install rbenv ruby-build
 eval "$(rbenv init - zsh)"
 rbenv install -s "$(cat .ruby-version)"
 nvm install
 nvm use
-npm ci
+npm ci --include=optional
 bundle install
 bundle exec pod install --project-directory=ios
 npm start
 ```
 
-`npm start` 会先检查 Watchman、提高 Metro 的文件描述符上限，并重新建立项目监视。如果提示缺少 Watchman，请执行 `brew install watchman` 后重试。不要直接用 `npx react-native start` 绕过这个启动脚本，否则 macOS 可能回退到 NodeWatcher 并报 `EMFILE: too many open files, watch`。
+macOS 使用 Metro 的 FSEvents 监听器。项目已声明 `fsevents@2.3.3`，通过 npm 安装，附带 Intel / Apple Silicon 预编译文件，支持 macOS 13.7，无需 Homebrew 或额外后台服务。它在其他操作系统上是可选依赖。不要在 macOS 安装依赖时使用 `--omit=optional`；如果启动提示缺少 FSEvents，执行 `npm install --include=optional` 即可。
+
+`npm start` 会检查 FSEvents，并尝试提高当前进程的文件描述符软上限，再启动 Metro；不修改系统配置，也不启动 Watchman。项目已排除 Pods、原生构建产物等不需要监听的目录。其他系统可使用 Metro 的 NodeWatcher。
+
+从旧配置切换时，先停止原来的 Metro，再执行：
+
+```sh
+nvm use
+npm install --include=optional
+npm start -- --reset-cache
+```
+
+之后直接运行 `npm start` 即可。如果仍出现 `EMFILE`，检查 `ulimit -Sn` 和 `ulimit -Hn`；启动脚本会在硬上限允许的范围内尝试提高软上限。此处仅移除了 Metro 对 Watchman 的依赖，iOS 编译仍需要与 macOS 版本兼容的 Xcode 和 CocoaPods。
 
 如果尚未配置 rbenv，将 `eval "$(rbenv init - zsh)"` 加到 `~/.zshrc`，让新终端也能自动选择项目 Ruby。Ruby 3.3 自带 Bundler，执行 `bundle install` 前可用 `ruby -v` 和 `which ruby` 检查：应显示 Ruby 3.3.12，路径应指向 rbenv 的 shim，而不是 `/usr/bin/ruby`。
 

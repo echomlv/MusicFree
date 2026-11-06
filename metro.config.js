@@ -17,15 +17,19 @@ const config = {
         babelTransformerPath: require.resolve('react-native-svg-transformer'),
     },
     resolver: {
+        // Use Metro's built-in FSEvents/Node watcher; no Homebrew service needed.
+        useWatchman: false,
         assetExts: assetExts.filter(ext => ext !== 'svg'),
         sourceExts: [...sourceExts, 'svg'],
         // Native dependencies, build output and local reference checkouts are not JS sources.
         blockList: [
-            /[/\\]\.agents[/\\].*/,
-            /[/\\]ios[/\\](?:Pods|build)[/\\].*/,
-            /[/\\]vendor[/\\]bundle[/\\].*/,
+            /[/\\]\.git(?:[/\\]|$)/,
+            /[/\\]\.agents(?:[/\\]|$)/,
+            /[/\\]ios[/\\](?:Pods|build)(?:[/\\]|$)/,
+            /[/\\]android[/\\](?:\.gradle|build|app[/\\](?:build|\.cxx))(?:[/\\]|$)/,
+            /[/\\]vendor[/\\]bundle(?:[/\\]|$)/,
         ],
     },
 };
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+module.exports = mergeConfig(defaultConfig, config);
