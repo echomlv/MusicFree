@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import rpx, { vh } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import ThemeText from "@/components/base/themeText";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,7 +24,7 @@ export default function SheetTags(props: ISheetTagsProps) {
 
     return (
         <PanelBase
-            height={vh(70)}
+            height="70%"
             renderBody={() => (
                 <>
                     <PanelHeader title={i18n.t("panel.sheetTags.title")} hideButtons />

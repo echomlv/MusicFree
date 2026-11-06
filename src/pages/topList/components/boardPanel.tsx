@@ -50,7 +50,7 @@ export default memo(
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
     },
     sectionHeader: {
         marginTop: rpx(28),

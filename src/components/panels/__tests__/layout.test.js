@@ -2,10 +2,12 @@ const React = require('react');
 const renderer = require('react-test-renderer');
 
 const mockKeyboardListeners = new Map();
+let mockWindow = {width: 393, height: 852};
+let mockOrientation = "vertical";
 jest.mock('react-native', () => ({
     View: 'View', Pressable: 'Pressable', KeyboardAvoidingView: 'KeyboardAvoidingView',
     StyleSheet: {create: styles => styles, hairlineWidth: 1, absoluteFillObject: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0}},
-    useWindowDimensions: () => ({width: 393, height: 852}),
+    useWindowDimensions: () => mockWindow,
     Platform: {OS: 'ios'},
     Keyboard: {
         isVisible: () => false,
@@ -31,7 +33,7 @@ jest.mock('react-native-reanimated', () => ({
 jest.mock('react-native-safe-area-context', () => ({useSafeAreaInsets: () => ({top: 47, bottom: 34, left: 0, right: 0})}));
 jest.mock('react-native-gesture-handler', () => ({FlatList: 'FlatList', ScrollView: 'ScrollView', TextInput: 'TextInput'}));
 jest.mock('@/hooks/useColors', () => () => ({backdrop: '#f0f0f0'}));
-jest.mock('@/hooks/useOrientation', () => () => 'vertical');
+jest.mock('@/hooks/useOrientation', () => () => mockOrientation);
 jest.mock('@/utils/rpx', () => ({__esModule: true, default: n => n / 2, vh: n => 852 * n / 100, vmax: n => 852 * n / 100}));
 jest.mock('@/components/panels/usePanel', () => ({panelInfoStore: {setValue: jest.fn()}, hidePanel: jest.fn()}));
 jest.mock('@/components/base/fastImage', () => 'FastImage');
@@ -55,7 +57,11 @@ let tree;
 const mount = element => renderer.act(() => { tree = renderer.create(element); });
 const panelStyle = () => Object.assign({}, ...tree.root.findByProps({testID: 'bottom-panel'}).props.style);
 
-beforeEach(() => jest.useFakeTimers());
+beforeEach(() => {
+    jest.useFakeTimers();
+    mockWindow = {width: 393, height: 852};
+    mockOrientation = "vertical";
+});
 afterEach(() => {
     renderer.act(() => tree?.unmount());
     jest.clearAllTimers();
@@ -68,7 +74,7 @@ it('keeps a non-input sheet and its safe area within one full-screen bottom-alig
     expect(overlay.props.style).toMatchObject({top: 0, left: 0, right: 0, bottom: 0});
     const container = tree.root.findByProps({testID: 'bottom-panel-container'});
     expect(tree.root.findAllByType('KeyboardAvoidingView')).toHaveLength(0);
-    expect(container.props.style.justifyContent).toBe('flex-end');
+    expect(Object.assign({}, ...container.props.style)).toMatchObject({justifyContent: 'flex-end', alignItems: 'center'});
     expect(panelStyle()).toMatchObject({height: 334, paddingBottom: 34});
     expect(panelStyle().bottom).toBeUndefined();
     // Paint the entire surface separately from iOS's asymmetric corner clipping.
@@ -126,4 +132,53 @@ it('keeps all seven playback speeds available, including the last option', () =>
     expect(rows).toHaveLength(7);
     renderer.act(() => rows[6].props.onPress());
     expect(onRatePress).toHaveBeenCalledWith(200);
+});
+
+it.each([
+    [744, 1133, 744], // iPad mini portrait
+    [1032, 1376, 750], // iPad Pro 13 portrait
+    [1133, 744, 744],
+    [1376, 1032, 750],
+    [375, 1032, 375], // Split View
+])('fits a %s × %s window and keeps the sheet within safe bounds', (width, height, expectedWidth) => {
+    mockWindow = {width, height};
+    mockOrientation = width < height ? 'vertical' : 'horizontal';
+    mount(React.createElement(PanelBase, {height: 400, renderBody: () => React.createElement('Body')}));
+    expect(panelStyle().width).toBe(expectedWidth);
+    expect(panelStyle().height).toBeLessThanOrEqual(height - 47);
+});
+
+it('resizes an open panel on rotation, Split View and keyboard changes', () => {
+    mockWindow = {width: 1032, height: 1376};
+    const element = () => React.createElement(PanelBase, {height: 900, renderBody: () => React.createElement('Body')});
+    mount(element());
+    expect(panelStyle().width).toBe(750);
+    renderer.act(() => {
+        mockWindow = {width: 375, height: 1032};
+        tree.update(element());
+        mockKeyboardListeners.get('keyboardWillShow')();
+        tree.root.findByProps({testID: 'bottom-panel-container'}).props.onLayout({nativeEvent: {layout: {height: 500}}});
+    });
+    expect(panelStyle()).toMatchObject({width: 375, height: 453, paddingBottom: 0});
+    renderer.act(() => {
+        mockWindow = {width: 1376, height: 1032};
+        mockOrientation = 'horizontal';
+        tree.update(element());
+        mockKeyboardListeners.get('keyboardWillHide')();
+        tree.root.findByProps({testID: 'bottom-panel-container'}).props.onLayout({nativeEvent: {layout: {height: 1032}}});
+    });
+    expect(panelStyle()).toMatchObject({width: 750, height: 985, paddingBottom: 34});
+});
+
+it('recalculates percentage height when a portrait window resizes without rotating', () => {
+    mockWindow = {width: 744, height: 1133};
+    const element = () => React.createElement(PanelBase, {height: '80%', renderBody: () => React.createElement('Body')});
+    mount(element());
+    expect(panelStyle().height).toBeCloseTo(1133 * 0.8 + 34);
+    renderer.act(() => {
+        mockWindow = {width: 600, height: 900};
+        tree.update(element());
+        tree.root.findByProps({testID: 'bottom-panel-container'}).props.onLayout({nativeEvent: {layout: {height: 900}}});
+    });
+    expect(panelStyle().height).toBeCloseTo(900 * 0.8 + 34);
 });

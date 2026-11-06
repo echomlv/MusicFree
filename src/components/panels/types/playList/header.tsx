@@ -49,7 +49,7 @@ export default function Header() {
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
         height: rpx(80),
         paddingHorizontal: rpx(24),
         marginTop: rpx(18),

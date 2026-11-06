@@ -9,7 +9,7 @@ import Toast from "@/utils/toast";
 import { hidePanel, showPanel } from "@/components/panels/usePanel";
 import TrackPlayer from "@/core/trackPlayer";
 import PersistStatus from "@/utils/persistStatus";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 import HeartIcon from "../heartIcon";
 import Icon from "@/components/base/icon.tsx";
 import lyricManager, { useLyricState } from "@/core/lyricManager";
@@ -29,11 +29,11 @@ export default function LyricOperations(props: ILyricOperationsProps) {
         false,
     );
     const colors = useColors();
-    const orientation = useOrientation();
+    const { twoColumns } = useLayout();
 
     return (
         <View style={styles.container}>
-            {orientation === "vertical" ? <HeartIcon /> : null}
+            {!twoColumns ? <HeartIcon /> : null}
             <Icon
                 name="font-size"
                 size={iconSizeConst.normal}

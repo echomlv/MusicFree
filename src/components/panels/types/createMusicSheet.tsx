@@ -1,6 +1,6 @@
 import { fontSizeConst } from "@/constants/uiConst";
 import useColors from "@/hooks/useColors";
-import rpx, { vmax } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import React, { useState } from "react";
 import { StyleSheet } from "react-native";
 
@@ -27,7 +27,7 @@ export default function CreateMusicSheet(props: ICreateMusicSheetProps) {
 
     return (
         <PanelBase
-            height={vmax(30)}
+            height="30%"
             keyboardAvoidBehavior="height"
             renderBody={() => (
                 <>
@@ -72,10 +72,10 @@ export default function CreateMusicSheet(props: ICreateMusicSheetProps) {
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
     },
     operations: {
-        width: rpx(750),
+        width: "100%",
         paddingHorizontal: rpx(24),
         flexDirection: "row",
         height: rpx(100),

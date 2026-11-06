@@ -8,8 +8,9 @@ import {
     TouchableWithoutFeedback,
     View,
     ViewStyle,
+    useWindowDimensions,
 } from "react-native";
-import rpx, { vh, vw } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -35,16 +36,20 @@ function Dialog(props: IDialogProps) {
     const colors = useColors();
     const backHandlerRef = useRef<NativeEventSubscription>();
     const orientation = useOrientation();
+    const { width, height } = useWindowDimensions();
 
     // 对话框宽度
     const dialogContainerStyle: ViewStyle =
         orientation === "vertical"
             ? {
-                width: vw(100) - rpx(72),
+                width: width - rpx(72),
             }
             : {
                 width: "80%",
             };
+    // Keep dialogs readable on iPad while retaining the phone width on iPhone.
+    dialogContainerStyle.maxWidth = 560;
+    dialogContainerStyle.maxHeight = height - rpx(48);
 
     useEffect(() => {
         sharedShowValue.value = 1;
@@ -152,6 +157,7 @@ interface IDialogContentProps {
 
 function Content(props: IDialogContentProps) {
     const { children, style, needScroll } = props;
+    const { height } = useWindowDimensions();
 
     const content =
         typeof children === "string" ? (
@@ -167,7 +173,7 @@ function Content(props: IDialogContentProps) {
             style={[
                 styles.contentContainer,
                 {
-                    maxHeight: vh(50),
+                    maxHeight: height * 0.5,
                 },
                 style,
             ]}>

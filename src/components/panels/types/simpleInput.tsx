@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import rpx, { vmax } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import { fontSizeConst } from "@/constants/uiConst";
 import useColors from "@/hooks/useColors";
 
@@ -40,7 +40,7 @@ export default function SimpleInput(props: ISimpleInputProps) {
     return (
         <PanelBase
             keyboardAvoidBehavior="height"
-            height={hints?.length ? vmax(30) : rpx(260)}
+            height={hints?.length ? "30%" : rpx(260)}
             renderBody={() => (
                 <>
                     <PanelHeader
@@ -97,10 +97,10 @@ export default function SimpleInput(props: ISimpleInputProps) {
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
     },
     opeartions: {
-        width: rpx(750),
+        width: "100%",
         paddingHorizontal: rpx(24),
         flexDirection: "row",
         height: rpx(100),

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
     BackHandler,
     DeviceEventEmitter,
@@ -6,6 +6,7 @@ import {
     Pressable,
     StyleSheet,
     ViewStyle,
+    useWindowDimensions,
 } from "react-native";
 
 import Animated, {
@@ -19,8 +20,6 @@ import Animated, {
 } from "react-native-reanimated";
 import useColors from "@/hooks/useColors";
 import { panelInfoStore } from "../usePanel";
-import { vh } from "@/utils/rpx.ts";
-import useOrientation from "@/hooks/useOrientation.ts";
 
 const ANIMATION_EASING: EasingFunction = Easing.out(Easing.exp);
 const ANIMATION_DURATION = 250;
@@ -56,8 +55,7 @@ export default function (props: IPanelFullScreenProps) {
 
     const hideCallbackRef = useRef<Function[]>([]);
 
-    const orientation = useOrientation();
-    const windowHeight = useMemo(() => vh(100), [orientation]);
+    const { height: windowHeight } = useWindowDimensions();
 
     useEffect(() => {
         snapPoint.value = 1;

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import AlbumCover from "./albumCover";
 import Lyric from "./lyric";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 import Config from "@/core/appConfig";
 import globalStyle from "@/constants/globalStyle";
 
@@ -10,11 +10,11 @@ export default function Content() {
     const [tab, selectTab] = useState<"album" | "lyric">(
         Config.getConfig("basic.musicDetailDefault") || "album",
     );
-    const orientation = useOrientation();
-    const showAlbumCover = tab === "album" || orientation === "horizontal";
+    const { twoColumns } = useLayout();
+    const showAlbumCover = tab === "album" || twoColumns;
 
     const onTurnPageClick = () => {
-        if (orientation === "horizontal") {
+        if (twoColumns) {
             return;
         }
         if (tab === "album") {

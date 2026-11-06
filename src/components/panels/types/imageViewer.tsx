@@ -1,8 +1,8 @@
 import React from "react";
-import { Image, StyleSheet } from "react-native";
-import rpx, { vh, vw } from "@/utils/rpx";
+import { Image, StyleSheet, useWindowDimensions } from "react-native";
+import rpx from "@/utils/rpx";
 import Toast from "@/utils/toast";
-import useOrientation from "@/hooks/useOrientation.ts";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { saveToGallery } from "@/utils/fileUtils.ts";
 import { errorLog } from "@/utils/log.ts";
 import PanelFullscreen from "@/components/panels/base/panelFullscreen.tsx";
@@ -16,7 +16,9 @@ interface IImageViewerProps {
 
 export default function ImageViewer(props: IImageViewerProps) {
     const { url } = props;
-    const orientation = useOrientation();
+    const { width, height } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
+    const imageSize = Math.max(0, Math.min(width - insets.left - insets.right - rpx(48), height - insets.top - insets.bottom - rpx(200), 800));
     const { t } = useI18N();
 
     return (
@@ -25,21 +27,7 @@ export default function ImageViewer(props: IImageViewerProps) {
             animationType="Scale"
             containerStyle={styles.container}>
             <Image
-                style={
-                    orientation === "vertical"
-                        ? {
-                            width: vw(100),
-                            minHeight: vw(100),
-                            maxHeight: vh(100),
-                            resizeMode: "cover",
-                        }
-                        : {
-                            maxWidth: vw(80),
-                            height: vh(60),
-                            minWidth: vh(60),
-                            resizeMode: "cover",
-                        }
-                }
+                style={{ width: imageSize, height: imageSize, resizeMode: "contain" }}
                 source={{
                     uri: url,
                 }}
@@ -74,6 +62,7 @@ const styles = StyleSheet.create({
     },
     button: {
         marginHorizontal: rpx(24),
-        paddingHorizontal: rpx(200),
+        paddingHorizontal: rpx(48),
+        maxWidth: "90%",
     },
 });

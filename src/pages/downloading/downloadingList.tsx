@@ -1,6 +1,5 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import rpx from "@/utils/rpx";
 import ListItem from "@/components/base/listItem";
 import { sizeFormatter } from "@/utils/fileUtils";
 import { DownloadFailReason, DownloadStatus, useDownloadQueue, useDownloadTask } from "@/core/downloader";
@@ -75,7 +74,7 @@ export default function DownloadingList() {
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
         flex: 1,
     },
     downloading: {

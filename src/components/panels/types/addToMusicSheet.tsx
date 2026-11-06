@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import rpx, { vmax } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import ListItem from "@/components/base/listItem";
 import { ImgAsset } from "@/constants/assetsConst";
 import Toast from "@/utils/toast";
@@ -113,7 +113,7 @@ export default function AddToMusicSheet(props: IAddToMusicSheetProps) {
                     </View>
                 </>
             )}
-            height={vmax(70)}
+            height="70%"
         />
     );
 }

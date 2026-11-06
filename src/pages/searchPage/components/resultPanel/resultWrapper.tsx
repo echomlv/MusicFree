@@ -2,7 +2,7 @@ import ListEmpty from "@/components/base/listEmpty";
 import ListFooter from "@/components/base/listFooter";
 import Loading from "@/components/base/loading";
 import { RequestStateCode } from "@/constants/commonConst";
-import useOrientation from "@/hooks/useOrientation";
+import useSheetGrid from "@/hooks/useSheetGrid";
 import rpx from "@/utils/rpx";
 import { FlashList } from "@shopify/flash-list";
 import { useAtomValue } from "jotai";
@@ -26,7 +26,7 @@ function ResultWrapper(props: IResultWrapperProps) {
     const [searchState, setSearchState] = useState<RequestStateCode>(
         searchResult?.state ?? RequestStateCode.IDLE,
     );
-    const orientation = useOrientation();
+    const { columns, onLayout } = useSheetGrid();
     const query = useAtomValue(queryAtom);
 
     const ResultComponent = renderMap[tab]!;
@@ -60,6 +60,7 @@ function ResultWrapper(props: IResultWrapperProps) {
         <Loading />
     ) : (
         <FlashList
+            onLayout={onLayout}
             extraData={searchState}
             ListEmptyComponent={<ListEmpty state={searchState} onRetry={() => {
                 search(query, 1, tab, pluginHash);
@@ -79,7 +80,7 @@ function ResultWrapper(props: IResultWrapperProps) {
             }}
             estimatedItemSize={tab === "sheet" ? rpx(306) : rpx(120)}
             numColumns={
-                tab === "sheet" ? (orientation === "vertical" ? 3 : 4) : 1
+                tab === "sheet" ? (columns) : 1
             }
             renderItem={renderItem}
             keyExtractor={keyExtractor}

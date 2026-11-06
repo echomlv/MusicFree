@@ -3,7 +3,7 @@ import rpx from "@/utils/rpx";
 import { FlashList } from "@shopify/flash-list";
 import useRecommendSheets from "../../hooks/useRecommendSheets";
 import SheetItem from "@/components/mediaItem/sheetItem";
-import useOrientation from "@/hooks/useOrientation";
+import useSheetGrid from "@/hooks/useSheetGrid";
 import ListEmpty from "@/components/base/listEmpty";
 import ListFooter from "@/components/base/listFooter";
 
@@ -20,7 +20,7 @@ function SheetList(props: ISheetListProps) {
     function renderItem({ item }: { item: IMusic.IMusicSheetItemBase }) {
         return <SheetItem sheetInfo={item} pluginHash={pluginHash} />;
     }
-    const orientation = useOrientation();
+    const { columns, onLayout } = useSheetGrid();
 
     const keyExtractor = useCallback(
         (item: any, i: number) => `${i}-${item.platform}-${item.id}`,
@@ -29,6 +29,7 @@ function SheetList(props: ISheetListProps) {
 
     return (
         <FlashList
+            onLayout={onLayout}
             ListEmptyComponent={<ListEmpty state={status} onRetry={query} />}
             ListFooterComponent={
                 sheets.length ? <ListFooter
@@ -41,7 +42,7 @@ function SheetList(props: ISheetListProps) {
             }}
             onEndReachedThreshold={0.1}
             estimatedItemSize={rpx(306)}
-            numColumns={orientation === "vertical" ? 3 : 4}
+            numColumns={columns}
             renderItem={renderItem}
             data={sheets}
             keyExtractor={keyExtractor}

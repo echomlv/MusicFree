@@ -60,7 +60,7 @@ export default function Header(props: IHeaderProps) {
     }, [scrollToTopState, neverFold]);
 
     return (
-        <Animated.View style={[styles.wrapper, heightStyle]}>
+        <Animated.View style={[styles.wrapper, neverFold ? { width: "40%" } : null, heightStyle]}>
             <View style={styles.headerWrapper}>
                 <Image
                     emptySrc={ImgAsset.albumDefault}
@@ -107,7 +107,7 @@ export default function Header(props: IHeaderProps) {
 
 const styles = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
         height: headerHeight,
         backgroundColor: "rgba(28, 28, 28, 0.1)",
         zIndex: 1,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
         borderRadius: rpx(16),
     },
     headerWrapper: {
-        width: rpx(750),
+        width: "100%",
         paddingTop: rpx(24),
         paddingHorizontal: rpx(24),
         height: rpx(240),
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     },
     description: {
         marginTop: rpx(24),
-        width: rpx(750),
+        width: "100%",
         paddingHorizontal: rpx(24),
     },
 });

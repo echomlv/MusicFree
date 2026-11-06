@@ -30,7 +30,7 @@ export default function NoPlugin(props: IProps) {
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
         flex: 1,
         alignItems: "center",
         justifyContent: "center",

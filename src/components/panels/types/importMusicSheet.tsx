@@ -1,5 +1,4 @@
 import ListItem from "@/components/base/listItem";
-import { vmax } from "@/utils/rpx";
 import Toast from "@/utils/toast";
 import React from "react";
 import { View } from "react-native";
@@ -23,7 +22,7 @@ export default function ImportMusicSheet() {
 
     return (
         <PanelBase
-            height={vmax(60)}
+            height="60%"
             renderBody={() => (
                 <>
                     <PanelHeader hideButtons title={t("panel.importMusicSheet.title")} />

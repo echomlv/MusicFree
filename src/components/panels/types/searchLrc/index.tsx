@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import rpx, { vmax, vw } from "@/utils/rpx";
+import rpx, { vw } from "@/utils/rpx";
 
 import { fontSizeConst, fontWeightConst } from "@/constants/uiConst";
 import Button from "@/components/base/textButton.tsx";
@@ -39,7 +39,7 @@ export default function SearchLrc(props: INewMusicSheetProps) {
     return (
         <PanelBase
             keyboardAvoidBehavior="height"
-            height={vmax(80)}
+            height="80%"
             renderBody={() => (
                 <View style={style.wrapper}>
                     <View style={style.titleContainer}>
@@ -79,7 +79,7 @@ export default function SearchLrc(props: INewMusicSheetProps) {
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
         paddingTop: rpx(36),
         flex: 1,
     },
@@ -91,7 +91,7 @@ const style = StyleSheet.create({
     },
 
     opeartions: {
-        width: rpx(750),
+        width: "100%",
         paddingHorizontal: rpx(24),
         flexDirection: "row",
         height: rpx(100),

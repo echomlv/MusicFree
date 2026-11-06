@@ -1,6 +1,6 @@
 import StatusBar from "@/components/base/statusBar";
 import globalStyle from "@/constants/globalStyle";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,7 +13,7 @@ import Config from "@/core/appConfig";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 
 export default function MusicDetail() {
-    const orientation = useOrientation();
+    const { twoColumns } = useLayout();
 
     useEffect(() => {
         const needAwake = Config.getConfig("basic.musicDetailAwake");
@@ -33,12 +33,12 @@ export default function MusicDetail() {
             <SafeAreaView style={globalStyle.fwflex1}>
                 <StatusBar backgroundColor={"transparent"} barStyle="light-content" />
                 <View style={style.bodyWrapper}>
-                    <View style={globalStyle.flex1}>
+                    <View style={[style.player, !twoColumns ? style.singleColumn : null]}>
                         <NavBar />
                         <Content />
                         <Bottom />
                     </View>
-                    {orientation === "horizontal" ? (
+                    {twoColumns ? (
                         <View style={globalStyle.flex1}>
                             <Lyric />
                         </View>
@@ -54,5 +54,15 @@ const style = StyleSheet.create({
         width: "100%",
         flex: 1,
         flexDirection: "row",
+        maxWidth: 1366,
+        alignSelf: "center",
+    },
+    player: {
+        flex: 1,
+        minWidth: 0,
+    },
+    singleColumn: {
+        maxWidth: 600,
+        marginHorizontal: "auto",
     },
 });

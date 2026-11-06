@@ -97,7 +97,7 @@ export default function MusicQuality(props: IMusicQualityProps) {
 
 const style = StyleSheet.create({
     header: {
-        width: rpx(750),
+        width: "100%",
         flexDirection: "row",
         padding: rpx(24),
     },

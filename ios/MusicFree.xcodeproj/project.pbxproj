@@ -529,6 +529,7 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = MusicFree/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -557,6 +558,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = MusicFree/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

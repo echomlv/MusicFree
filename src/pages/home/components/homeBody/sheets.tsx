@@ -198,6 +198,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: rpx(24),
         flexDirection: "row",
         alignItems: "flex-start",
+        flexWrap: "wrap",
         marginBottom: rpx(12),
     },
     subTitleLeft: {

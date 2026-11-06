@@ -7,7 +7,7 @@ import { ROUTE_PATH } from "@/core/router";
 import { ImgAsset } from "@/constants/assetsConst";
 import Toast from "@/utils/toast";
 import toast from "@/utils/toast";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 import { showPanel } from "@/components/panels/usePanel";
 import TrackPlayer, { useCurrentMusic, useMusicQuality } from "@/core/trackPlayer";
 import { iconSizeConst } from "@/constants/uiConst";
@@ -24,7 +24,7 @@ export default function Operations() {
     const isDownloaded = LocalMusicSheet.useIsLocal(musicItem);
 
     const rate = PersistStatus.useValue("music.rate", 100);
-    const orientation = useOrientation();
+    const { compactHeight } = useLayout();
 
     const supportComment = useMemo(() => {
         return !musicItem
@@ -36,7 +36,7 @@ export default function Operations() {
         <View
             style={[
                 styles.wrapper,
-                orientation === "horizontal" ? styles.horizontalWrapper : null,
+                compactHeight ? styles.horizontalWrapper : null,
             ]}>
             <HeartIcon />
             <Pressable

@@ -60,7 +60,7 @@ export default function Operations() {
 
 const styles = StyleSheet.create({
     container: {
-        width: rpx(200),
+        width: rpx(210),
         flexGrow: 0,
         flexShrink: 0,
         paddingHorizontal: rpx(24),

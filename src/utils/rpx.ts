@@ -1,12 +1,15 @@
 import { Dimensions } from "react-native";
+import { getControlScale } from "./layout";
 
-const windowWidth = Dimensions.get("window").width;
-const windowHeight = Dimensions.get("window").height;
-const minWindowEdge = Math.min(windowHeight, windowWidth);
-const maxWindowEdge = Math.max(windowHeight, windowWidth);
+const screen = Dimensions.get("screen");
+// Keep controls stable across rotation/resizing. Large screens gain content
+// space rather than scaling every icon and row to the full iPad width.
+// Use the display so launching in Split View has the same scale as resizing
+// into Split View later. Container widths are measured separately.
+const controlScale = getControlScale(screen.width, screen.height);
 
 export default function (rpx: number) {
-    return (rpx / 750) * minWindowEdge;
+    return rpx * controlScale;
 }
 
 export function vh(pct: number) {
@@ -18,11 +21,13 @@ export function vw(pct: number) {
 }
 
 export function vmin(pct: number) {
-    return (pct / 100) * minWindowEdge;
+    const { width, height } = Dimensions.get("window");
+    return (pct / 100) * Math.min(width, height);
 }
 
 export function vmax(pct: number) {
-    return (pct / 100) * maxWindowEdge;
+    const { width, height } = Dimensions.get("window");
+    return (pct / 100) * Math.max(width, height);
 }
 
 export function sh(pct: number) {

@@ -150,7 +150,7 @@ export default function PluginSubscribe() {
 
 const style = StyleSheet.create({
     wrapper: {
-        width: rpx(750),
+        width: "100%",
         flex: 1,
     },
     listWrapper: {

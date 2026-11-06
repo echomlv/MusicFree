@@ -6,7 +6,7 @@ import { InteractionManager, StyleSheet, View } from "react-native";
 import Icon from "@/components/base/icon.tsx";
 import { showPanel } from "@/components/panels/usePanel";
 import TrackPlayer, { useMusicState, useRepeatMode } from "@/core/trackPlayer";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 import delay from "@/utils/delay";
 import { musicIsPaused } from "@/utils/trackUtils";
 
@@ -14,7 +14,7 @@ export default function () {
     const repeatMode = useRepeatMode();
     const musicState = useMusicState();
 
-    const orientation = useOrientation();
+    const { compactHeight } = useLayout();
 
     console.log(repeatMode, repeatModeConst[repeatMode]);
 
@@ -23,7 +23,7 @@ export default function () {
             <View
                 style={[
                     style.wrapper,
-                    orientation === "horizontal"
+                    compactHeight
                         ? {
                             marginTop: 0,
                         }

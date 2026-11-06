@@ -58,14 +58,14 @@ export default function Operations() {
 
 const styles = StyleSheet.create({
     container: {
-        width: rpx(750),
+        width: "100%",
         paddingHorizontal: rpx(24),
         marginVertical: rpx(32),
         flexDirection: "row",
         flexWrap: "nowrap",
     },
     actionButtonStyle: {
-        width: rpx(157.5),
+        flex: 1,
         height: rpx(160),
         borderRadius: rpx(18),
     },

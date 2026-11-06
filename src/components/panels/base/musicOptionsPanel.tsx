@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import FastImage from "@/components/base/fastImage";
 import ListItem from "@/components/base/listItem";
@@ -8,7 +8,7 @@ import Divider from "@/components/base/divider";
 import { IIconName } from "@/components/base/icon";
 import { ImgAsset } from "@/constants/assetsConst";
 import { iconSizeConst } from "@/constants/uiConst";
-import rpx, { vh } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import PanelBase from "./panelBase";
 
 interface MusicOption {
@@ -28,8 +28,9 @@ export default function MusicOptionsPanel({ musicItem, options }: {
 }) {
     // Filter before measuring: hidden album/download actions must not occupy list rows.
     const visibleOptions = options.filter(option => option.show !== false);
+    const window = useWindowDimensions();
     const height = Math.min(
-        vh(75),
+        window.height * 0.75,
         HEADER_HEIGHT + visibleOptions.length * ROW_HEIGHT + LIST_PADDING * 2 + StyleSheet.hairlineWidth,
     );
 

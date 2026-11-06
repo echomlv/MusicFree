@@ -1,6 +1,6 @@
 import useColors from "@/hooks/useColors";
 import useOrientation from "@/hooks/useOrientation";
-import rpx, { vh } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     BackHandler,
@@ -25,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { panelInfoStore } from "../usePanel";
+import { getPanelWidth } from "@/utils/layout";
 
 const ANIMATION_EASING: EasingFunction = Easing.out(Easing.exp);
 const ANIMATION_DURATION = 250;
@@ -36,13 +37,13 @@ const timingConfig = {
 
 interface IPanelBaseProps {
     keyboardAvoidBehavior?: "height" | "padding" | "position" | "none";
-    height?: number;
+    height?: number | `${number}%`;
     renderBody: (loading: boolean) => JSX.Element;
 }
 
 export default function (props: IPanelBaseProps) {
     const {
-        height = vh(60),
+        height = "60%",
         renderBody,
         keyboardAvoidBehavior,
     } = props;
@@ -59,11 +60,19 @@ export default function (props: IPanelBaseProps) {
     const avoidsKeyboard = keyboardAvoidBehavior !== "none";
     const bottomInset = avoidsKeyboard && keyboardVisible ? 0 : safeAreaInsets.bottom;
     const maximumHeight = Math.max(0, availableHeight - safeAreaInsets.top);
+    const contentHeight = typeof height === "number"
+        ? height
+        : window.height * parseFloat(height) / 100;
     // Height describes usable content; safe-area padding stays inside the same surface.
     const panelHeight = orientation === "horizontal"
         ? maximumHeight
-        : Math.min(height + bottomInset, maximumHeight);
-    const panelWidth = Math.min(rpx(750), window.width);
+        : Math.min(contentHeight + bottomInset, maximumHeight);
+    // A 750pt content surface fits iPad mini and keeps panels readable on the
+    // 13-inch iPad Pro instead of stretching every control across the screen.
+    const panelWidth = Math.min(
+        getPanelWidth(window.width, window.height),
+        window.width - safeAreaInsets.left - safeAreaInsets.right,
+    );
     const useAnimatedBase = useMemo(
         () => (orientation === "horizontal" ? panelWidth : panelHeight),
         [orientation, panelHeight, panelWidth],
@@ -211,7 +220,14 @@ export default function (props: IPanelBaseProps) {
             testID="bottom-panel-container"
             collapsable={false}
             pointerEvents="box-none"
-            style={style.contentContainer}
+            style={[
+                style.contentContainer,
+                {
+                    alignItems: orientation === "vertical" ? "center" : "flex-end",
+                    paddingLeft: safeAreaInsets.left,
+                    paddingRight: safeAreaInsets.right,
+                },
+            ]}
             onLayout={event => {
                 const available = event.nativeEvent.layout.height;
                 setAvailableHeight(available);
@@ -238,7 +254,7 @@ export default function (props: IPanelBaseProps) {
                     pointerEvents="box-none"
                     style={style.kbContainer}
                     contentContainerStyle={style.contentContainer}
-                    behavior={keyboardAvoidBehavior === "none" ? undefined : keyboardAvoidBehavior || "height"}>
+                    behavior={keyboardAvoidBehavior || "height"}>
                     {content}
                 </KeyboardAvoidingView>
             ) : content}

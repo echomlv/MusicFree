@@ -1,8 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useState } from "react";
 import rpx from "@/utils/rpx";
 import { ImgAsset } from "@/constants/assetsConst";
 import FastImage from "@/components/base/fastImage";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useCurrentMusic } from "@/core/trackPlayer";
 import globalStyle from "@/constants/globalStyle";
@@ -18,21 +18,12 @@ export default function AlbumCover(props: IProps) {
     const { onTurnPageClick } = props;
 
     const musicItem = useCurrentMusic();
-    const orientation = useOrientation();
-
-    const artworkStyle = useMemo(() => {
-        if (orientation === "vertical") {
-            return {
-                width: rpx(500),
-                height: rpx(500),
-            };
-        } else {
-            return {
-                width: rpx(260),
-                height: rpx(260),
-            };
-        }
-    }, [orientation]);
+    const { width, height, compactHeight } = useLayout();
+    const [availableSize, setAvailableSize] = useState(rpx(500));
+    const preferredSize = Math.min(width, height) >= 600
+        ? 420
+        : rpx(compactHeight ? 260 : 500);
+    const artworkSize = Math.min(preferredSize, availableSize);
 
     const longPress = Gesture.LongPress()
         .onStart(() => {
@@ -55,9 +46,14 @@ export default function AlbumCover(props: IProps) {
     return (
         <>
             <GestureDetector gesture={combineGesture}>
-                <View style={globalStyle.fullCenter}>
+                <View
+                    style={globalStyle.fullCenter}
+                    onLayout={event => {
+                        const layout = event.nativeEvent.layout;
+                        setAvailableSize(Math.max(0, Math.min(layout.width * 0.84, layout.height - rpx(24))));
+                    }}>
                     <FastImage
-                        style={artworkStyle}
+                        style={{ width: artworkSize, height: artworkSize }}
                         source={musicItem?.artwork}
                         placeholderSource={ImgAsset.albumDefault}
                     />

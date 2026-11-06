@@ -1,7 +1,6 @@
 import { useAppConfig } from "@/core/appConfig";
 import Theme from "@/core/theme";
 import useCheckUpdate from "@/hooks/useCheckUpdate";
-import { useListenOrientationChange } from "@/hooks/useOrientation";
 import { getDefaultStore, useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { AppState, NativeEventSubscription, useColorScheme } from "react-native";
@@ -13,7 +12,6 @@ import i18n from "@/core/i18n";
 export function BootstrapComponent() {
     const bootstrapState = useAtomValue(bootstrapAtom);
 
-    useListenOrientationChange();
     useCheckUpdate();
 
     const followSystem = useAppConfig("theme.followSystem");

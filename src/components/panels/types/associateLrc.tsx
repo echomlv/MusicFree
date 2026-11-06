@@ -1,4 +1,4 @@
-import rpx, { vmax } from "@/utils/rpx";
+import rpx from "@/utils/rpx";
 import React, { useState } from "react";
 import { StyleSheet } from "react-native";
 
@@ -30,7 +30,7 @@ export default function AssociateLrc(props: INewMusicSheetProps) {
     return (
         <PanelBase
             keyboardAvoidBehavior="height"
-            height={vmax(30)}
+            height="30%"
             renderBody={() => (
                 <>
                     <PanelHeader
@@ -99,7 +99,7 @@ export default function AssociateLrc(props: INewMusicSheetProps) {
 
 const style = StyleSheet.create({
     opeartions: {
-        width: rpx(750),
+        width: "100%",
         paddingHorizontal: rpx(24),
         flexDirection: "row",
         height: rpx(100),

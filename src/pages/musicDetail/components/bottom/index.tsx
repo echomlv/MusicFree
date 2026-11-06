@@ -3,15 +3,15 @@ import { StyleSheet, View } from "react-native";
 import rpx from "@/utils/rpx";
 import SeekBar from "./seekBar";
 import PlayControl from "./playControl";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 
 export default function Bottom() {
-    const orientation = useOrientation();
+    const { compactHeight } = useLayout();
     return (
         <View
             style={[
                 style.wrapper,
-                orientation === "horizontal"
+                compactHeight
                     ? {
                         height: rpx(156),
                     }

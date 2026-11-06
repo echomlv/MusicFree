@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, useWindowDimensions } from "react-native";
 
 import NavBar from "./components/navBar";
 import MusicBar from "@/components/musicBar";
@@ -12,10 +12,10 @@ import globalStyle from "@/constants/globalStyle";
 import Theme from "@/core/theme";
 import HomeBody from "./components/homeBody";
 import HomeBodyHorizontal from "./components/homeBodyHorizontal";
-import useOrientation from "@/hooks/useOrientation";
+import useLayout from "@/hooks/useLayout";
 
 function Home() {
-    const orientation = useOrientation();
+    const { twoColumns } = useLayout();
 
     return (
         <SafeAreaView edges={["top", "bottom"]} style={styles.appWrapper}>
@@ -23,7 +23,7 @@ function Home() {
             <HorizontalSafeAreaView style={globalStyle.flex1}>
                 <>
                     <NavBar />
-                    {orientation === "vertical" ? (
+                    {!twoColumns ? (
                         <HomeBody />
                     ) : (
                         <HomeBodyHorizontal />
@@ -46,27 +46,16 @@ function HomeStatusBar() {
     );
 }
 
-// function Body() {
-//     const orientation = useOrientation();
-//     return (
-//         <ScrollView
-//             style={[
-//                 styles.appWrapper,
-//                 orientation === 'horizontal' ? styles.flexRow : null,
-//             ]}>
-//             <Operations orientation={orientation} />
-//         </ScrollView>
-//     );
-// }
-
 const LeftDrawer = createDrawerNavigator();
 export default function App() {
+    const { width } = useWindowDimensions();
+
     return (
         <LeftDrawer.Navigator
             screenOptions={{
                 headerShown: false,
                 drawerStyle: {
-                    width: "80%",
+                    width: Math.min(width * 0.8, 420),
                 },
             }}
             initialRouteName="HOME-MAIN"

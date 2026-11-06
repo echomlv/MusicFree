@@ -94,7 +94,7 @@ export default function TimingClose() {
 
 const styles = StyleSheet.create({
     header: {
-        width: rpx(750),
+        width: "100%",
         paddingHorizontal: rpx(24),
         height: rpx(90),
         flexDirection: "row",

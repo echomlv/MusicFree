@@ -155,7 +155,7 @@ const style = StyleSheet.create({
         flex: 1,
     },
     header: {
-        width: rpx(750),
+        width: "100%",
         height: rpx(400),
         justifyContent: "center",
         alignItems: "center",
@@ -185,7 +185,7 @@ const style = StyleSheet.create({
     wcChannel: {
         width: rpx(330),
         height: rpx(330),
-        marginLeft: rpx(210),
+        alignSelf: "center",
         marginTop: rpx(24),
     },
     scrollView: {
