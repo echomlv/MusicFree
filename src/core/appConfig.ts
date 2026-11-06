@@ -8,6 +8,15 @@ import { safeStringify } from "@/utils/jsonUtil";
 
 const configStore = getOrCreateMMKV("App.config");
 
+// Shared by the settings UI and services; explicit saved choices take precedence.
+const defaultConfig: Partial<IAppConfigProperties> = {
+    "basic.useCelluarNetworkPlay": true,
+    "basic.tryChangeSourceWhenPlayFail": true,
+    "basic.autoStopWhenError": true,
+    "lyric.autoSearchLyric": true,
+    "basic.clickMusicInAlbum": "playAlbum",
+};
+
 class AppConfig implements IAppConfig {
     // 迁移函数
     private async migrateConfig(): Promise<void> {
@@ -148,10 +157,10 @@ class AppConfig implements IAppConfig {
                 this.setConfig("basic.clickMusicInSearch", "playMusicAndReplace");
             }
 
-            // @ts-expect-error 兼容旧版本
-            if (this.getConfig("basic.clickMusicInAlbum") === "播放专辑") {
+            const albumClickAction: string | undefined = this.getConfig("basic.clickMusicInAlbum");
+            if (albumClickAction === "播放专辑") {
                 this.setConfig("basic.clickMusicInAlbum", "playAlbum");
-            } else {
+            } else if (albumClickAction === "播放歌曲") {
                 this.setConfig("basic.clickMusicInAlbum", "playMusic");
             }
 
@@ -188,7 +197,7 @@ class AppConfig implements IAppConfig {
     ): IAppConfigProperties[K] | undefined {
         const value = configStore.getString(key);
         if (value === undefined) {
-            return undefined;
+            return defaultConfig[key];
         }
         return JSON.parse(value);
     }
@@ -199,5 +208,6 @@ export default appConfig;
 
 /***** hooks *****/
 export function useAppConfig<K extends keyof IAppConfigProperties>(key: K): IAppConfigProperties[K] | undefined {
-    return useMMKVObject<IAppConfigProperties[K]>(key, configStore)[0];
+    const value = useMMKVObject<IAppConfigProperties[K]>(key, configStore)[0];
+    return value === undefined ? defaultConfig[key] : value;
 }
