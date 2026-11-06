@@ -296,6 +296,7 @@
     "basicSettings.cache.clearDownloadedMusicAction": "Clear",
     "basicSettings.cache.clearLyricCache": "Clear Lyrics Cache",
     "basicSettings.cache.clearImageCache": "Clear Image Cache",
+    "basicSettings.cache.imageCacheAutoCleanup": "Image cache is cleaned automatically: above 100MB, older entries are removed to reach about 50MB; entries older than 7 days expire. Checks run on startup, when entering the background, and every 15 minutes in the foreground. Downloaded songs, custom artwork and backgrounds are kept.",
     "basicSettings.developer": "Developer Options",
     "basicSettings.developer.errorLog": "Record Error Logs",
     "basicSettings.developer.traceLog": "Record Detailed Logs",

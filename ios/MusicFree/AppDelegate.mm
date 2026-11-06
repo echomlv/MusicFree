@@ -2,6 +2,25 @@
 
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
+#import <SDWebImage/SDImageCache.h>
+
+static void ConfigureImageCache(UIApplication *application) {
+  SDImageCache *cache = SDImageCache.sharedImageCache;
+  cache.config.maxDiskSize = 100 * 1024 * 1024;
+  cache.config.maxDiskAge = 7 * 24 * 60 * 60;
+  cache.config.shouldRemoveExpiredDataWhenEnterBackground = YES;
+  cache.config.shouldRemoveExpiredDataWhenTerminate = YES;
+
+  // SDWebImage serializes disk maintenance with cache writes. It removes expired
+  // entries first, then the oldest files down to half the limit if oversized.
+  // Keep in-memory images and user-owned files untouched.
+  [cache deleteOldFilesWithCompletionBlock:nil];
+  [NSTimer scheduledTimerWithTimeInterval:15 * 60 repeats:YES block:^(NSTimer *timer) {
+    if (application.applicationState == UIApplicationStateActive) {
+      [cache deleteOldFilesWithCompletionBlock:nil];
+    }
+  }];
+}
 
 // Files opened from iCloud Drive or another app must outlive that provider's access grant.
 static NSURL *ImportDocumentURL(NSURL *url) {
@@ -28,6 +47,8 @@ static NSURL *ImportDocumentURL(NSURL *url) {
   // You can add your custom initial props in the dictionary below.
   // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
+
+  ConfigureImageCache(application);
 
   NSURL *launchURL = launchOptions[UIApplicationLaunchOptionsURLKey];
   if (launchURL.isFileURL) {

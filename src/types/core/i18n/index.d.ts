@@ -360,6 +360,7 @@ export interface ILanguageData {
     "basicSettings.cache.clearDownloadedMusicAction": string; // 清空已下载歌曲
     "basicSettings.cache.clearLyricCache": string; // 清除歌词缓存
     "basicSettings.cache.clearImageCache": string; // 清除图片缓存
+    "basicSettings.cache.imageCacheAutoCleanup": string; // 图片缓存自动清理说明
     
     "basicSettings.developer": string; // 开发选项
     "basicSettings.developer.errorLog": string; // 记录错误日志

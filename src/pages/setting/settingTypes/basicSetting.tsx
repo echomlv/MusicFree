@@ -21,7 +21,7 @@ import Toast from "@/utils/toast";
 import Clipboard from "@react-native-clipboard/clipboard";
 import Slider from "@react-native-community/slider";
 import React, { useCallback, useEffect, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { AppState, Platform, StyleSheet, View } from "react-native";
 import { readdir } from "react-native-fs";
 import { ScrollView } from "react-native-gesture-handler";
 
@@ -144,7 +144,13 @@ export default function BasicSetting() {
 
     useEffect(() => {
         refreshCacheSize();
-    }, []);
+        const subscription = AppState.addEventListener("change", state => {
+            if (state === "active") {
+                refreshCacheSize();
+            }
+        });
+        return () => subscription.remove();
+    }, [refreshCacheSize]);
 
     const basicOptions = [
         {
@@ -422,6 +428,11 @@ export default function BasicSetting() {
         },
         {
             title: t("basicSettings.cache"),
+            footer: Platform.OS === "ios" ? (
+                <ThemeText fontSize="description" fontColor="textSecondary" style={styles.cacheDescription}>
+                    {t("basicSettings.cache.imageCacheAutoCleanup")}
+                </ThemeText>
+            ) : null,
             data: [
                 ...(Platform.OS === "android" ? [
                     {
@@ -651,6 +662,10 @@ const styles = StyleSheet.create({
     },
     settingsFooter: {
         height: rpx(48),
+    },
+    cacheDescription: {
+        paddingHorizontal: rpx(24),
+        paddingVertical: rpx(16),
     },
 });
 

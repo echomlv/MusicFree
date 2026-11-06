@@ -296,6 +296,7 @@
     "basicSettings.cache.clearDownloadedMusicAction": "清空",
     "basicSettings.cache.clearLyricCache": "清除歌词缓存",
     "basicSettings.cache.clearImageCache": "清除图片缓存",
+    "basicSettings.cache.imageCacheAutoCleanup": "图片缓存会自动清理：超过 100MB 时优先清理较旧缓存至约 50MB，并移除超过 7 天的缓存。启动、进入后台及前台每 15 分钟检查一次，不影响已下载歌曲、自定义封面和背景。",
     "basicSettings.developer": "开发选项",
     "basicSettings.developer.errorLog": "记录错误日志",
     "basicSettings.developer.traceLog": "记录详细日志",

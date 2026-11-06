@@ -296,6 +296,7 @@
     "basicSettings.cache.clearDownloadedMusicAction": "清空",
     "basicSettings.cache.clearLyricCache": "清除歌詞快取",
     "basicSettings.cache.clearImageCache": "清除圖片快取",
+    "basicSettings.cache.imageCacheAutoCleanup": "圖片快取會自動清理：超過 100MB 時優先清理較舊快取至約 50MB，並移除超過 7 天的快取。啟動、進入背景及前景每 15 分鐘檢查一次，不影響已下載歌曲、自訂封面和背景。",
     "basicSettings.developer": "開發選項",
     "basicSettings.developer.errorLog": "記錄錯誤日誌",
     "basicSettings.developer.traceLog": "記錄詳細日誌",
