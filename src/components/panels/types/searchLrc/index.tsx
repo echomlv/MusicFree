@@ -38,9 +38,8 @@ export default function SearchLrc(props: INewMusicSheetProps) {
 
     return (
         <PanelBase
-            keyboardAvoidBehavior="none"
+            keyboardAvoidBehavior="height"
             height={vmax(80)}
-            positionMethod='top'
             renderBody={() => (
                 <View style={style.wrapper}>
                     <View style={style.titleContainer}>

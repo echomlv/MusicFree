@@ -40,7 +40,7 @@ export default function SimpleInput(props: ISimpleInputProps) {
     return (
         <PanelBase
             keyboardAvoidBehavior="height"
-            height={vmax(30)}
+            height={hints?.length ? vmax(30) : rpx(260)}
             renderBody={() => (
                 <>
                     <PanelHeader
@@ -74,8 +74,8 @@ export default function SimpleInput(props: ISimpleInputProps) {
                         placeholder={placeholder ?? ""}
                         maxLength={maxLength}
                     />
-                    <ScrollView>
-                        {hints?.length ? (
+                    {hints?.length ? (
+                        <ScrollView keyboardShouldPersistTaps="handled">
                             <View style={style.hints}>
                                 {hints.map((_, index) => (
                                     <ThemeText
@@ -87,8 +87,8 @@ export default function SimpleInput(props: ISimpleInputProps) {
                                     </ThemeText>
                                 ))}
                             </View>
-                        ) : null}
-                    </ScrollView>
+                        </ScrollView>
+                    ) : null}
                 </>
             )}
         />

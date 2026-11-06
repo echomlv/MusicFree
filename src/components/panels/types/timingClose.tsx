@@ -44,7 +44,6 @@ export default function TimingClose() {
     return (
         <PanelBase
             keyboardAvoidBehavior="none"
-            positionMethod='top'
             height={rpx(450)}
             renderBody={() => (
                 <>

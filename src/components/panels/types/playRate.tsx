@@ -3,7 +3,6 @@ import { Pressable, StyleSheet } from "react-native";
 import rpx from "@/utils/rpx";
 import ThemeText from "@/components/base/themeText";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PanelBase from "../base/panelBase";
 import { ScrollView } from "react-native-gesture-handler";
 import { hidePanel } from "../usePanel";
@@ -22,19 +21,14 @@ export default function PlayRate(props: IPlayRateProps) {
     const { onRatePress } = props ?? {};
     const i18n = useI18N();
 
-    const safeAreaInsets = useSafeAreaInsets();
-
     return (
         <PanelBase
             height={rpx(520)}
+            keyboardAvoidBehavior="none"
             renderBody={() => (
                 <>
                     <PanelHeader title={i18n.t("panel.playRate.title")} hideButtons />
-                    <ScrollView
-                        style={[
-                            style.body,
-                            { marginBottom: safeAreaInsets.bottom },
-                        ]}>
+                    <ScrollView style={style.body}>
                         {rates.map(key => {
                             return (
                                 <Fragment key={`frag-${key}`}>

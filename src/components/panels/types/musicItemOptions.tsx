@@ -1,26 +1,16 @@
+import MusicOptionsPanel from "../base/musicOptionsPanel";
 import React from "react";
-import { StyleSheet, View } from "react-native";
-import rpx from "@/utils/rpx";
-import ListItem from "@/components/base/listItem";
-import ThemeText from "@/components/base/themeText";
-import { ImgAsset } from "@/constants/assetsConst";
 import Clipboard from "@react-native-clipboard/clipboard";
 
 import { getMediaUniqueKey } from "@/utils/mediaUtils";
-import FastImage from "@/components/base/fastImage";
 import Toast from "@/utils/toast";
 import LocalMusicSheet from "@/core/localMusicSheet";
 import { localMusicSheetId, musicHistorySheetId } from "@/constants/commonConst";
 import { ROUTE_PATH } from "@/core/router";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import PanelBase from "../base/panelBase";
-import { FlatList } from "react-native-gesture-handler";
 import musicHistory from "@/core/musicHistory";
 import { showDialog } from "@/components/dialogs/useDialog";
 import { hidePanel, showPanel } from "../usePanel";
-import Divider from "@/components/base/divider";
-import { iconSizeConst } from "@/constants/uiConst";
 import Config from "@/core/appConfig";
 import TrackPlayer from "@/core/trackPlayer";
 import mediaCache from "@/core/mediaCache";
@@ -31,7 +21,6 @@ import { getMediaExtraProperty } from "@/utils/mediaExtra";
 import lyricManager from "@/core/lyricManager";
 import { useI18N } from "@/core/i18n";
 import pluginManager from "@/core/pluginManager";
-import useColors from "@/hooks/useColors";
 
 interface IMusicItemOptionsProps {
     /** 歌曲信息 */
@@ -42,7 +31,6 @@ interface IMusicItemOptionsProps {
     from?: string;
 }
 
-const ITEM_HEIGHT = rpx(96);
 
 interface IOption {
     icon: IIconName;
@@ -54,9 +42,7 @@ interface IOption {
 export default function MusicItemOptions(props: IMusicItemOptionsProps) {
     const { musicItem, musicSheet, from } = props ?? {};
     const { t } = useI18N();
-    const colors = useColors();
 
-    const safeAreaInsets = useSafeAreaInsets();
 
     const downloaded = LocalMusicSheet.isLocalMusic(musicItem);
     const associatedLrc = getMediaExtraProperty(musicItem, "associatedLrc");
@@ -235,100 +221,5 @@ export default function MusicItemOptions(props: IMusicItemOptionsProps) {
         },
     ];
 
-    return (
-        <PanelBase
-            keyboardAvoidBehavior="none"
-            renderBody={() => (
-                <>
-                    <View style={style.header}>
-                        <FastImage
-                            style={style.artwork}
-                            source={musicItem?.artwork}
-                            placeholderSource={ImgAsset.albumDefault}
-                        />
-                        <View style={style.content}>
-                            <ThemeText numberOfLines={2} style={style.title}>
-                                {musicItem?.title}
-                            </ThemeText>
-                            <ThemeText
-                                fontColor="textSecondary"
-                                numberOfLines={2}
-                                fontSize="description">
-                                {musicItem?.artist}{" "}
-                                {musicItem?.album ? `- ${musicItem.album}` : ""}
-                            </ThemeText>
-                        </View>
-                    </View>
-                    <Divider />
-                    <View style={[style.wrapper, { backgroundColor: colors.backdrop }]}>
-                        <FlatList
-                            data={options}
-                            getItemLayout={(_, index) => ({
-                                length: ITEM_HEIGHT,
-                                offset: ITEM_HEIGHT * index,
-                                index,
-                            })}
-                            ListFooterComponent={<View style={style.footer} />}
-                            style={[
-                                style.listWrapper,
-                                {
-                                    marginBottom: safeAreaInsets.bottom,
-                                },
-                            ]}
-                            keyExtractor={_ => _.title}
-                            renderItem={({ item }) =>
-                                item.show !== false ? (
-                                    <ListItem
-                                        withHorizontalPadding
-                                        heightType="small"
-                                        onPress={item.onPress}>
-                                        <ListItem.ListItemIcon
-                                            width={rpx(48)}
-                                            icon={item.icon}
-                                            iconSize={iconSizeConst.light}
-                                        />
-                                        <ListItem.Content title={item.title} />
-                                    </ListItem>
-                                ) : null
-                            }
-                        />
-                    </View>
-                </>
-            )}
-        />
-    );
+    return <MusicOptionsPanel musicItem={musicItem} options={options} />;
 }
-
-const style = StyleSheet.create({
-    wrapper: {
-        width: rpx(750),
-        flex: 1,
-    },
-    header: {
-        width: rpx(750),
-        height: rpx(200),
-        flexDirection: "row",
-        padding: rpx(24),
-    },
-    listWrapper: {
-        paddingTop: rpx(12),
-    },
-    artwork: {
-        width: rpx(140),
-        height: rpx(140),
-        borderRadius: rpx(16),
-    },
-    content: {
-        marginLeft: rpx(36),
-        width: rpx(526),
-        height: rpx(140),
-        justifyContent: "space-around",
-    },
-    title: {
-        paddingRight: rpx(24),
-    },
-    footer: {
-        width: rpx(750),
-        height: rpx(30),
-    },
-});

@@ -5,7 +5,6 @@ import ThemeText from "@/components/base/themeText";
 
 import { qualityKeys, qualityText } from "@/utils/qualities";
 import { sizeFormatter } from "@/utils/fileUtils";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PanelBase from "../base/panelBase";
 import { ScrollView } from "react-native-gesture-handler";
 import { hidePanel } from "../usePanel";
@@ -28,7 +27,6 @@ interface IMusicQualityProps {
 }
 
 export default function MusicQuality(props: IMusicQualityProps) {
-    const safeAreaInsets = useSafeAreaInsets();
     const i18n = useI18N();
     const colors = useColors();
     const currentQuality = useMusicQuality();
@@ -56,9 +54,6 @@ export default function MusicQuality(props: IMusicQualityProps) {
                         style={[
                             style.body,
                             { backgroundColor: colors.backdrop },
-                            {
-                                marginBottom: safeAreaInsets.bottom,
-                            },
                         ]}>
                         {qualityKeys.map(key => {
                             return (

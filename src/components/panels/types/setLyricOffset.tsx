@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: rpx(24),
-        paddingBottom: rpx(36),
         width: "100%",
         flexDirection: "row",
         alignItems: "center",

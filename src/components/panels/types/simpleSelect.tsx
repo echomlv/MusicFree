@@ -1,7 +1,6 @@
 import React, { Fragment } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import rpx from "@/utils/rpx";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PanelBase from "../base/panelBase";
 import { hidePanel } from "../usePanel";
 import ListItem from "@/components/base/listItem";
@@ -27,8 +26,6 @@ export default function SimpleSelect(props: ISimpleSelectProps) {
         onPress,
     } = props ?? {};
 
-    const safeAreaInsets = useSafeAreaInsets();
-
     return (
         <PanelBase
             height={height}
@@ -37,11 +34,7 @@ export default function SimpleSelect(props: ISimpleSelectProps) {
                 <>
                     <PanelHeader title={header} hideButtons />
 
-                    <ScrollView
-                        style={[
-                            styles.body,
-                            { marginBottom: safeAreaInsets.bottom },
-                        ]}>
+                    <ScrollView style={styles.body}>
                         {candidates.map((it, index) => {
                             return (
                                 <Fragment key={`frag-${index}`}>

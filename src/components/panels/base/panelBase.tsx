@@ -5,10 +5,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
     BackHandler,
     DeviceEventEmitter,
+    Keyboard,
     KeyboardAvoidingView,
     NativeEventSubscription,
+    Platform,
     Pressable,
     StyleSheet,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import Animated, {
     Easing,
@@ -21,7 +25,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { panelInfoStore } from "../usePanel";
-import NativeUtils from "@/native/utils";
 
 const ANIMATION_EASING: EasingFunction = Easing.out(Easing.exp);
 const ANIMATION_DURATION = 250;
@@ -34,8 +37,6 @@ const timingConfig = {
 interface IPanelBaseProps {
     keyboardAvoidBehavior?: "height" | "padding" | "position" | "none";
     height?: number;
-    // 定位方式
-    positionMethod?: "top" | "bottom";
     renderBody: (loading: boolean) => JSX.Element;
 }
 
@@ -44,7 +45,6 @@ export default function (props: IPanelBaseProps) {
         height = vh(60),
         renderBody,
         keyboardAvoidBehavior,
-        positionMethod = "bottom",
     } = props;
     const snapPoint = useSharedValue(0);
 
@@ -53,14 +53,36 @@ export default function (props: IPanelBaseProps) {
     const timerRef = useRef<any>();
     const safeAreaInsets = useSafeAreaInsets();
     const orientation = useOrientation();
-    const extendsBottomArea = positionMethod === "bottom" && keyboardAvoidBehavior === "none";
-    const panelHeight = extendsBottomArea
-        ? height + rpx(132) + safeAreaInsets.bottom
-        : height;
+    const window = useWindowDimensions();
+    const [availableHeight, setAvailableHeight] = useState(window.height);
+    const [keyboardVisible, setKeyboardVisible] = useState(Keyboard.isVisible());
+    const avoidsKeyboard = keyboardAvoidBehavior !== "none";
+    const bottomInset = avoidsKeyboard && keyboardVisible ? 0 : safeAreaInsets.bottom;
+    const maximumHeight = Math.max(0, availableHeight - safeAreaInsets.top);
+    // Height describes usable content; safe-area padding stays inside the same surface.
+    const panelHeight = orientation === "horizontal"
+        ? maximumHeight
+        : Math.min(height + bottomInset, maximumHeight);
+    const panelWidth = Math.min(rpx(750), window.width);
     const useAnimatedBase = useMemo(
-        () => (orientation === "horizontal" ? rpx(750) : panelHeight),
-        [orientation, panelHeight],
+        () => (orientation === "horizontal" ? panelWidth : panelHeight),
+        [orientation, panelHeight, panelWidth],
     );
+
+    useEffect(() => {
+        const show = Keyboard.addListener(
+            Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+            () => setKeyboardVisible(true),
+        );
+        const hide = Keyboard.addListener(
+            Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+            () => setKeyboardVisible(false),
+        );
+        return () => {
+            show.remove();
+            hide.remove();
+        };
+    }, []);
 
     const backHandlerRef = useRef<NativeEventSubscription>();
 
@@ -70,10 +92,8 @@ export default function (props: IPanelBaseProps) {
         snapPoint.value = withTiming(1, timingConfig);
 
         timerRef.current = setTimeout(() => {
-            if (loading) {
-                // 兜底
-                setLoading(false);
-            }
+            // Fallback when the animation completion notification is delayed.
+            setLoading(false);
         }, 400);
         if (backHandlerRef.current) {
             backHandlerRef.current.remove();
@@ -82,6 +102,7 @@ export default function (props: IPanelBaseProps) {
         backHandlerRef.current = BackHandler.addEventListener(
             "hardwareBackPress",
             () => {
+                Keyboard.dismiss();
                 snapPoint.value = withTiming(0, timingConfig);
                 return true;
             },
@@ -93,6 +114,7 @@ export default function (props: IPanelBaseProps) {
                 if (callback) {
                     hideCallbackRef.current.push(callback);
                 }
+                Keyboard.dismiss();
                 snapPoint.value = withTiming(0, timingConfig);
             },
         );
@@ -108,7 +130,7 @@ export default function (props: IPanelBaseProps) {
             }
             listenerSubscription.remove();
         };
-    }, []);
+    }, [snapPoint]);
 
     const maskAnimated = useAnimatedStyle(() => {
         return {
@@ -128,7 +150,7 @@ export default function (props: IPanelBaseProps) {
                     },
             ],
         };
-    }, [orientation]);
+    }, [orientation, useAnimatedBase]);
 
     const mountPanel = useCallback(() => {
         setLoading(false);
@@ -162,82 +184,95 @@ export default function (props: IPanelBaseProps) {
 
     const panelBody = (
         <Animated.View
+            collapsable={false}
+            testID="bottom-panel"
             style={[
                 style.wrapper,
-                orientation === "horizontal" ? {
-                    height: vh(100) - safeAreaInsets.top,
-                    bottom: 0,
-                } : {
-                    top: positionMethod === "top" ? (NativeUtils.getWindowDimensions().height + safeAreaInsets.top) - height - safeAreaInsets.bottom : undefined,
-                    bottom: extendsBottomArea
-                        ? -(rpx(132) + safeAreaInsets.bottom)
-                        : positionMethod === "bottom" ? 0 : undefined,
-                    height: panelHeight,
-                },
                 {
-                    backgroundColor: colors.backdrop,
+                    width: panelWidth,
+                    height: panelHeight,
+                    paddingBottom: bottomInset,
                 },
                 panelAnimated,
             ]}>
+            {/* Keep the solid surface separate from the asymmetric corner clip.
+                iOS can leave a dark strip when it rasterizes both on one view. */}
+            <View
+                testID="bottom-panel-surface"
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.backdrop }]}
+            />
             {renderBody(loading)}
         </Animated.View>
     );
 
+    const content = (
+        <View
+            testID="bottom-panel-container"
+            collapsable={false}
+            pointerEvents="box-none"
+            style={style.contentContainer}
+            onLayout={event => {
+                const available = event.nativeEvent.layout.height;
+                setAvailableHeight(available);
+            }}>
+            {panelBody}
+        </View>
+    );
+
     return (
-        <>
+        <View testID="bottom-panel-overlay" collapsable={false} pointerEvents="box-none" style={style.overlay}>
             <Pressable
                 style={style.maskWrapper}
                 onPress={() => {
+                    Keyboard.dismiss();
                     snapPoint.value = withTiming(0, timingConfig);
                 }}>
                 <Animated.View
                     style={[style.maskWrapper, style.mask, maskAnimated]}
                 />
             </Pressable>
-            {keyboardAvoidBehavior === "none" ? (
-                panelBody
-            ) : (
+            {avoidsKeyboard ? (
                 <KeyboardAvoidingView
+                    testID="bottom-panel-keyboard"
                     pointerEvents="box-none"
                     style={style.kbContainer}
-                    contentContainerStyle={style.kbContent}
-                    behavior={keyboardAvoidBehavior || "height"}>
-                    {panelBody}
+                    contentContainerStyle={style.contentContainer}
+                    behavior={keyboardAvoidBehavior === "none" ? undefined : keyboardAvoidBehavior || "height"}>
+                    {content}
                 </KeyboardAvoidingView>
-            )}
-        </>
+            ) : content}
+        </View>
     );
 }
 
 const style = StyleSheet.create({
-    maskWrapper: {
-        position: "absolute",
-        width: "100%",
-        height: "100%",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
         zIndex: 15000,
+    },
+    maskWrapper: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 0,
     },
     mask: {
         backgroundColor: "#000",
         opacity: 0.5,
     },
     wrapper: {
-        position: "absolute",
-        width: rpx(750),
-        right: 0,
         borderTopLeftRadius: rpx(28),
         borderTopRightRadius: rpx(28),
-        zIndex: 15010,
+        overflow: "hidden",
+        zIndex: 1,
     },
     kbContainer: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 15010,
-    },
-    kbContent: {
         flex: 1,
-        zIndex: 15010,
+        zIndex: 1,
+    },
+    contentContainer: {
+        flex: 1,
+        justifyContent: "flex-end",
+        alignItems: "flex-end",
+        zIndex: 1,
     },
 });

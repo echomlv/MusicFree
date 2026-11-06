@@ -7,7 +7,6 @@ import { fontSizeConst } from "@/constants/uiConst";
 import { isSameMediaItem } from "@/utils/mediaUtils";
 import IconButton from "@/components/base/iconButton";
 import Loading from "@/components/base/loading";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import useColors from "@/hooks/useColors";
 import TrackPlayer, { useCurrentMusic, usePlayList } from "@/core/trackPlayer";
 import { FlashList } from "@shopify/flash-list";
@@ -87,7 +86,6 @@ export default function Body(props: IBodyProps) {
     const playList = usePlayList();
     const currentMusicItem = useCurrentMusic();
     const listRef = useRef<FlashList<IMusic.IMusicItem> | null>();
-    const safeAreaInsets = useSafeAreaInsets();
 
     const initIndex = useMemo(() => {
         const id = playList.findIndex(_ =>
@@ -117,7 +115,6 @@ export default function Body(props: IBodyProps) {
                 style.playList,
                 {
                     backgroundColor: colors.backdrop,
-                    paddingBottom: safeAreaInsets.bottom,
                 },
             ]}>
             <FlashList

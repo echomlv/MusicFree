@@ -30,7 +30,6 @@ export default function SetUserVariables(props: IUserVariablesProps) {
     return (
         <PanelBase
             height={vmax(80)}
-            positionMethod='top'
             keyboardAvoidBehavior='none'
             renderBody={() => (
                 <>
