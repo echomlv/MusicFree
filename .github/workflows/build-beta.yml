@@ -1,9 +1,6 @@
 name: Beta 构建
 
 on:
-  push:
-    branches: [dev]
-    paths: ['package.json']
   workflow_dispatch:
     inputs:
       force_build:
@@ -14,7 +11,7 @@ on:
 
 jobs:
   check-version:
-    if: github.actor == 'maotoumao' || github.event_name == 'push'
+    if: github.actor == 'maotoumao'
     runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.version_check.outputs.should_build }}
